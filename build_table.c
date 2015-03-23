@@ -34,6 +34,8 @@ typedef struct {
 
 } auxilliary_offset_data;
 
+static unsigned int hash_type = 0;
+
 static uint128_t *loaded_hashes_128 = NULL;
 static unsigned int num_loaded_hashes = 0;
 
@@ -99,6 +101,15 @@ inline unsigned int modulo128_64b(uint128_t a, unsigned int N, uint64_t shift64)
 	p += (a.LO64 % N);
 	p %= N;
 	return (unsigned int)p;
+}
+
+unsigned int modulo_op(void * hash, unsigned int N, uint64_t shift64)
+{
+	if (hash_type == 128)
+		return  modulo128_64b(*(uint128_t *)hash, N, shift64);
+	else
+		fprintf(stderr, "modulo op error\n");
+	return 0;
 }
 
 inline uint128_t add128(uint128_t a, unsigned int b)
@@ -214,7 +225,7 @@ void init_tables(unsigned int approx_offset_table_sz, unsigned int approx_hash_t
 	/* Build Auxilliary data structure for offset_table. */
 #pragma omp for
 	for (i = 0; i < num_loaded_hashes; i++) {
-		offset_data_idx = modulo128_64b(loaded_hashes_128[i], offset_table_size, shift64_ot_sz);
+		offset_data_idx = modulo_op(&loaded_hashes_128[i], offset_table_size, shift64_ot_sz);
 #pragma omp atomic
 		offset_data[offset_data_idx].collisions++;
 	}
@@ -230,7 +241,7 @@ void init_tables(unsigned int approx_offset_table_sz, unsigned int approx_hash_t
 #pragma omp for
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int iter;
-		offset_data_idx = modulo128_64b(loaded_hashes_128[i], offset_table_size, shift64_ot_sz);
+		offset_data_idx = modulo_op(&loaded_hashes_128[i], offset_table_size, shift64_ot_sz);
 #pragma omp atomic write
 		offset_data[offset_data_idx].offset_table_idx = offset_data_idx;
 #pragma omp atomic capture
@@ -312,15 +323,10 @@ unsigned int get_offset_128(unsigned int hash_table_idx, unsigned int hash_locat
 	return (hash_table_size - z + hash_table_idx);
 }
 
-unsigned int hash_modulo_table_sz_128(unsigned int hash_loc)
-{
-	return modulo128_64b(loaded_hashes_128[hash_loc], hash_table_size, shift64_ht_sz);
-}
-
-void calc_hash_mdoulo_table_size(unsigned int *store, auxilliary_offset_data * ptr) {
+void calc_hash_mdoulo_table_size_128(unsigned int *store, auxilliary_offset_data * ptr) {
 	unsigned int i = 0;
 	while (i < ptr -> collisions) {
-		store[i] =  hash_modulo_table_sz_128(ptr -> hash_location_list[i]);
+		store[i] =  modulo128_64b(loaded_hashes_128[ptr -> hash_location_list[i]], hash_table_size, shift64_ht_sz);
 		i++;
 	}
 }
@@ -354,7 +360,7 @@ unsigned int create_tables()
 
 		current_iter = i;
 
-		calc_hash_mdoulo_table_size(store_hash_modulo_table_sz, &offset_data[i]);
+		calc_hash_mdoulo_table_size_128(store_hash_modulo_table_sz, &offset_data[i]);
 
 		offset = (OFFSET_TABLE_WORD)(randomMT() & bitmap) % hash_table_size;
 
@@ -494,7 +500,7 @@ void load_hashes_128()
 {
 #define NO_MODULO_TEST
 	FILE *fp;
-	char filename[200] = "100k";
+	char filename[200] = "100M";
 	char string_a[9], string_b[9], string_c[9], string_d[9];
 	unsigned int iter, shift64;
 
@@ -735,7 +741,9 @@ void create_perfect_hash_table()
 
 	total_memory_in_bytes = 0;
 
+	hash_type = 128;
 	load_hashes_128();
+
 
 	signal(SIGALRM, alarm_handler);
 
