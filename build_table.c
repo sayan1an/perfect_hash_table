@@ -13,7 +13,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include "mt.h"
-#include "hash_type.h"
+#include "hash_types.h"
 
 #define BITMAP_TEST_OFF
 #define DEBUG
@@ -35,7 +35,7 @@ static unsigned int (*calc_ht_idx)(unsigned int, unsigned int);
 static unsigned int (*get_offset)(unsigned int, unsigned int);
 static void (*allocate_ht)(void);
 static void (*load_hashes)(void);
-static void (*test_tables)(OFFSET_TABLE_WORD *, unsigned int, unsigned int);
+static void (*test_tables)(OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
 static void *loaded_hashes;
 static void *hash_table;
 static unsigned int hash_type = 0;
@@ -43,10 +43,10 @@ static unsigned int binary_size_actual = 0;
 
 unsigned int num_loaded_hashes = 0;
 
-unsigned int hash_table_size = 0, shift64_ht_sz = 0;
+unsigned int hash_table_size = 0, shift64_ht_sz = 0, shift128_ht_sz = 0;
 
 static OFFSET_TABLE_WORD *offset_table = NULL;
-static unsigned int offset_table_size = 0, shift64_ot_sz = 0;
+static unsigned int offset_table_size = 0, shift64_ot_sz = 0, shift128_ot_sz = 0;
 static auxilliary_offset_data *offset_data = NULL;
 
 unsigned long long total_memory_in_bytes = 0;
@@ -96,10 +96,12 @@ void release_all_lists()
 		free(offset_data[i].hash_location_list);
 }
 
-unsigned int modulo_op(void * hash, unsigned int N, uint64_t shift64)
+unsigned int modulo_op(void * hash, unsigned int N, uint64_t shift64, uint64_t shift128)
 {
 	if (hash_type == 128)
-		return  modulo128_64b(*(uint128_t *)hash, N, shift64);
+		return  modulo128_31b(*(uint128_t *)hash, N, shift64);
+	else if (hash_type == 192)
+		return  modulo192_31b(*(uint192_t *)hash, N, shift64, shift128);
 	else
 		fprintf(stderr, "modulo op error\n");
 	return 0;
@@ -151,6 +153,7 @@ void in_place_bucket_sort(unsigned int num_buckets)
 void init_tables(unsigned int approx_offset_table_sz, unsigned int approx_hash_table_sz)
 {
 	unsigned int i, max_collisions, offset_data_idx;
+	uint64_t shift128;
 
 	fprintf(stderr, "Initialing Tables...");
 
@@ -164,8 +167,19 @@ void init_tables(unsigned int approx_offset_table_sz, unsigned int approx_hash_t
 	offset_table_size = approx_offset_table_sz;
 	hash_table_size = approx_hash_table_sz;
 
+	if (hash_table_size > 0x7fffffff || offset_table_size > 0x7fffffff) {
+		fprintf(stderr, "Reduce the number of loaded hashes to < 0x7fffffff.\n");
+		exit(0);
+	}
+
 	shift64_ht_sz = (((1ULL << 63) % hash_table_size) * 2) % hash_table_size;
 	shift64_ot_sz = (((1ULL << 63) % offset_table_size) * 2) % offset_table_size;
+
+	shift128 = shift64_ht_sz * shift64_ht_sz;
+	shift128_ht_sz = shift128 % hash_table_size;
+
+	shift128 = shift64_ot_sz * shift64_ot_sz;
+	shift128_ot_sz = shift128 % offset_table_size;
 
 	offset_table = (OFFSET_TABLE_WORD *) malloc(offset_table_size * sizeof(OFFSET_TABLE_WORD));
 	total_memory_in_bytes += offset_table_size * sizeof(OFFSET_TABLE_WORD);
@@ -190,7 +204,7 @@ void init_tables(unsigned int approx_offset_table_sz, unsigned int approx_hash_t
 	/* Build Auxilliary data structure for offset_table. */
 #pragma omp for
 	for (i = 0; i < num_loaded_hashes; i++) {
-		offset_data_idx = modulo_op(loaded_hashes + i * binary_size_actual, offset_table_size, shift64_ot_sz);
+		offset_data_idx = modulo_op(loaded_hashes + i * binary_size_actual, offset_table_size, shift64_ot_sz, shift128_ot_sz);
 #pragma omp atomic
 		offset_data[offset_data_idx].collisions++;
 	}
@@ -206,7 +220,7 @@ void init_tables(unsigned int approx_offset_table_sz, unsigned int approx_hash_t
 #pragma omp for
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int iter;
-		offset_data_idx = modulo_op(loaded_hashes + i * binary_size_actual, offset_table_size, shift64_ot_sz);
+		offset_data_idx = modulo_op(loaded_hashes + i * binary_size_actual, offset_table_size, shift64_ot_sz, shift128_ot_sz);
 #pragma omp atomic write
 		offset_data[offset_data_idx].offset_table_idx = offset_data_idx;
 #pragma omp atomic capture
@@ -265,7 +279,7 @@ unsigned int check_n_insert_into_hash_table(unsigned int offset, auxilliary_offs
 void calc_hash_mdoulo_table_size(unsigned int *store, auxilliary_offset_data * ptr) {
 	unsigned int i = 0;
 	while (i < ptr -> collisions) {
-		store[i] =  modulo_op(loaded_hashes + (ptr -> hash_location_list[i]) * binary_size_actual, hash_table_size, shift64_ht_sz);
+		store[i] =  modulo_op(loaded_hashes + (ptr -> hash_location_list[i]) * binary_size_actual, hash_table_size, shift64_ht_sz, shift128_ht_sz);
 		i++;
 	}
 }
@@ -566,21 +580,44 @@ void create_perfect_hash_table()
 
 	total_memory_in_bytes = 0;
 
-	load_hashes = load_hashes_128;
+	hash_type = 192;
+
+	if (hash_type == 128) {
+		binary_size_actual = 16;
+		load_hashes = load_hashes_128;
+	}
+	else if (hash_type == 192) {
+		binary_size_actual = 24;
+		load_hashes = load_hashes_160;
+	}
 
 	load_hashes();
 
-	hash_type = 128;
-	binary_size_actual = 16;
-	zero_check_ht = zero_check_ht_128;
-	assign_ht = assign_ht_128;
-	assign0_ht = assign0_ht_128;
-	calc_ht_idx = calc_ht_idx_128;
-	get_offset = get_offset_128;
-	allocate_ht = allocate_ht_128;
-	loaded_hashes = loaded_hashes_128;
-	hash_table = hash_table_128;
-	test_tables = test_tables_128;
+	if (hash_type == 128) {
+		zero_check_ht = zero_check_ht_128;
+		assign_ht = assign_ht_128;
+		assign0_ht = assign0_ht_128;
+		calc_ht_idx = calc_ht_idx_128;
+		get_offset = get_offset_128;
+		allocate_ht = allocate_ht_128;
+		loaded_hashes = loaded_hashes_128;
+		hash_table = hash_table_128;
+		test_tables = test_tables_128;
+		fprintf(stdout, "Using Hash type 128.\n");
+	}
+
+	else if (hash_type == 192) {
+		zero_check_ht = zero_check_ht_192;
+		assign_ht = assign_ht_192;
+		assign0_ht = assign0_ht_192;
+		calc_ht_idx = calc_ht_idx_192;
+		get_offset = get_offset_192;
+		allocate_ht = allocate_ht_192;
+		loaded_hashes = loaded_hashes_192;
+		hash_table = hash_table_192;
+		test_tables = test_tables_192;
+		fprintf(stdout, "Using Hash type 192.\n");
+	}
 
 	signal(SIGALRM, alarm_handler);
 
@@ -647,7 +684,7 @@ void create_perfect_hash_table()
 
 	} while(1);
 
-	test_tables(offset_table, offset_table_size, shift64_ot_sz);
+	test_tables(offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz);
 
 	release_all_lists();
 	free(offset_data);

@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "hash_type.h"
+#include "hash_types.h"
 
 uint128_t *loaded_hashes_128 = NULL;
 uint128_t *hash_table_128 = NULL;
 
 /* Assuming N < 0x7fffffff */
-inline unsigned int modulo128_64b(uint128_t a, unsigned int N, uint64_t shift64)
+inline unsigned int modulo128_31b(uint128_t a, unsigned int N, uint64_t shift64)
 {
 	uint64_t p;
 	p = (a.HI64 % N) * shift64;
@@ -48,7 +48,7 @@ void allocate_ht_128()
 
 inline unsigned int calc_ht_idx_128(unsigned int hash_location, unsigned int offset)
 {
-	return  modulo128_64b(add128(loaded_hashes_128[hash_location], offset), hash_table_size, shift64_ht_sz);
+	return  modulo128_31b(add128(loaded_hashes_128[hash_location], offset), hash_table_size, shift64_ht_sz);
 }
 
 inline unsigned int zero_check_ht_128(unsigned int hash_table_idx)
@@ -68,11 +68,11 @@ inline void assign0_ht_128(unsigned int hash_table_idx)
 
 unsigned int get_offset_128(unsigned int hash_table_idx, unsigned int hash_location)
 {
-	unsigned int z = modulo128_64b(loaded_hashes_128[hash_location], hash_table_size, shift64_ht_sz);
+	unsigned int z = modulo128_31b(loaded_hashes_128[hash_location], hash_table_size, shift64_ht_sz);
 	return (hash_table_size - z + hash_table_idx);
 }
 
-void test_tables_128(OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_size, unsigned int shift64_ot_sz)
+void test_tables_128(OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_size, unsigned int shift64_ot_sz, unsigned int shift128_ot_sz)
 {
 	unsigned char *hash_table_collisions;
 	unsigned int i, hash_table_idx, error = 1, count = 0;
@@ -86,7 +86,7 @@ void test_tables_128(OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_
 			hash_table_idx =
 				calc_ht_idx_128(i,
 					(unsigned int)offset_table[
-					modulo128_64b(loaded_hashes_128[i],
+					modulo128_31b(loaded_hashes_128[i],
 					offset_table_size, shift64_ot_sz)]);
 #pragma omp atomic
 			hash_table_collisions[hash_table_idx]++;
@@ -170,7 +170,7 @@ void load_hashes_128()
 #ifndef NO_MODULO_TEST
 		test = ((unsigned __int128)d << 96) + ((unsigned __int128)c << 64) + ((unsigned __int128)b << 32) + ((unsigned __int128)a);
 		p = test % num_loaded_hashes;
-		q = modulo128_64b(input_hash_128, num_loaded_hashes, shift64);
+		q = modulo128_31b(input_hash_128, num_loaded_hashes, shift64);
 		if (p != q) {
 			fprintf(stderr, "Error with modulo operation!!\n");
 			exit(0);
