@@ -37,7 +37,6 @@ static void (*allocate_ht)(void);
 static void (*load_hashes)(void);
 static void (*test_tables)(OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
 static void *loaded_hashes;
-static void *hash_table;
 static unsigned int hash_type = 0;
 static unsigned int binary_size_actual = 0;
 
@@ -400,122 +399,9 @@ unsigned int create_tables()
 
 	fprintf(stdout, "\n");
 	free(hash_table_idxs);
+	free(store_hash_modulo_table_sz);
 
 	return 1;
-}
-
-void bitmap_test()
-{
-	unsigned int num_bitmap_loads_4G, num_bitmap_loads_1G, num_bitmap_loads_128M, num_bitmap_loads_16M, num_bitmap_loads_1M, num_bitmap_loads_128k, num_bitmap_loads_16k, num_bitmap_loads_1k;
-	long double load4G, load1G, load128M, load16M, load1M, load128k, load16k, load1k;
-	unsigned int bitmap_idx, iter;
-	unsigned int *bitmap_1k, *bitmap_16k, *bitmap_128k, *bitmap_1M, *bitmap_16M, *bitmap_128M, *bitmap_1G, *bitmap_4G;
-	unsigned int input_hash_LO32, total_bitmap_size;
-
-	total_memory_in_bytes = 0;
-
-	load_hashes_128();
-
-	bitmap_1k = (unsigned int *) calloc(32, 4);
-	bitmap_16k = (unsigned int *) calloc(32 * 16, 4);
-	bitmap_128k = (unsigned int *) calloc(32 * 16 * 8, 4);
-	bitmap_1M = (unsigned int *) calloc(32 * 16 * 8 * 8, 4);
-	bitmap_16M = (unsigned int *) calloc(32 * 16 * 8 * 8 * 16, 4);
-	bitmap_128M = (unsigned int *) calloc(32 * 16 * 8 * 8 * 16 * 8, 4);
-	bitmap_1G = (unsigned int *) calloc(32 * 16 * 8 * 8 * 16 * 8 * 8, 4);
-	bitmap_4G = (unsigned int *) calloc(32 * 16 * 8 * 8 * 16 * 8 * 8 * 4, 4);
-
-	total_bitmap_size =
-		((unsigned long long)32 + 32 * 16 + 32 * 16 * 8 + 32 * 16 * 8 * 8 +
-		32 * 16 * 8 * 8 * 16 + 32 * 16 * 8 * 8 * 16 * 8 + 32 * 16 * 8 * 8 * 16 * 8 * 8 +
-		32 * 16 * 8 * 8 * 16 * 8 * 8 * 4) * 4;
-
-	num_bitmap_loads_4G = num_bitmap_loads_1G = num_bitmap_loads_128M = num_bitmap_loads_16M = num_bitmap_loads_1M = num_bitmap_loads_128k = num_bitmap_loads_16k = num_bitmap_loads_1k = 0;
-
-	iter = 0;
-	while (iter < num_loaded_hashes) {
-		input_hash_LO32 = loaded_hashes_128[iter].LO64 & 0xFFFFFFFF;
-
-		bitmap_idx = input_hash_LO32 & ((unsigned int)4 * 1024 * 1024 * 1024 - 1);
-		if (!(bitmap_4G[bitmap_idx >> 5] & (1U << (bitmap_idx & 31)))) {
-			bitmap_4G[bitmap_idx >> 5] |= (1U << (bitmap_idx & 31));
-			num_bitmap_loads_4G++;
-		}
-
-		bitmap_idx = input_hash_LO32 & ((unsigned int)1024 * 1024 * 1024 - 1);
-		if (!(bitmap_1G[bitmap_idx >> 5] & (1U << (bitmap_idx & 31)))) {
-			bitmap_1G[bitmap_idx >> 5] |= (1U << (bitmap_idx & 31));
-			num_bitmap_loads_1G++;
-		}
-
-		bitmap_idx = input_hash_LO32 & ((unsigned int)128 * 1024 * 1024 - 1);
-		if (!(bitmap_128M[bitmap_idx >> 5] & (1U << (bitmap_idx & 31)))) {
-			bitmap_128M[bitmap_idx >> 5] |= (1U << (bitmap_idx & 31));
-			num_bitmap_loads_128M++;
-		}
-
-		bitmap_idx = input_hash_LO32 & ((unsigned int)16 * 1024 * 1024 - 1);
-		if (!(bitmap_16M[bitmap_idx >> 5] & (1U << (bitmap_idx & 31)))) {
-			bitmap_16M[bitmap_idx >> 5] |= (1U << (bitmap_idx & 31));
-			num_bitmap_loads_16M++;
-		}
-
-		bitmap_idx = input_hash_LO32 & ((unsigned int)1024 * 1024 - 1);
-		if (!(bitmap_1M[bitmap_idx >> 5] & (1U << (bitmap_idx & 31)))) {
-			bitmap_1M[bitmap_idx >> 5] |= (1U << (bitmap_idx & 31));
-			num_bitmap_loads_1M++;
-		}
-
-		bitmap_idx = input_hash_LO32 & ((unsigned int)128 * 1024 - 1);
-		if (!(bitmap_128k[bitmap_idx >> 5] & (1U << (bitmap_idx & 31)))) {
-			bitmap_128k[bitmap_idx >> 5] |= (1U << (bitmap_idx & 31));
-			num_bitmap_loads_128k++;
-		}
-
-		bitmap_idx = input_hash_LO32 & ((unsigned int)16 * 1024 - 1);
-		if (!(bitmap_16k[bitmap_idx >> 5] & (1U << (bitmap_idx & 31)))) {
-			bitmap_16k[bitmap_idx >> 5] |= (1U << (bitmap_idx & 31));
-			num_bitmap_loads_16k++;
-		}
-
-		bitmap_idx = input_hash_LO32 & ((unsigned int)1024 - 1);
-		if (!(bitmap_1k[bitmap_idx >> 5] & (1U << (bitmap_idx & 31)))) {
-			bitmap_1k[bitmap_idx >> 5] |= (1U << (bitmap_idx & 31));
-			num_bitmap_loads_1k++;
-		}
-
-		iter++;
-	}
-	fprintf(stdout, "Toatal Size of Bitmaps(in MBs):%Lf\n", ((long double)total_bitmap_size) / ((long double)1024 * 1024));
-
-	load4G = ((long double)num_bitmap_loads_4G / ((long double)4 * 1024 * 1024 * 1024));
-	load1G = ((long double)num_bitmap_loads_1G / ((long double)1024 * 1024 * 1024));
-	load128M = ((long double)num_bitmap_loads_128M / ((long double)128 * 1024 * 1024));
-	load16M = ((long double)num_bitmap_loads_16M / ((long double)16 * 1024 * 1024));
-	load1M = ((long double)num_bitmap_loads_1M / ((long double)1024 * 1024));
-	load128k = ((long double)num_bitmap_loads_128k / ((long double)128 * 1024));
-	load16k = ((long double)num_bitmap_loads_16k / ((long double)16 * 1024));
-	load1k = ((long double)num_bitmap_loads_1k / ((long double)1024));
-
-	fprintf(stdout, "4Gbit bitmap: Number of bits set:%u, Fraction positive:%Lf\n", num_bitmap_loads_4G, load4G);
-	fprintf(stdout, "1Gbit bitmap: Number of bits set:%u, Fraction positive:%Lf\n", num_bitmap_loads_1G, load1G);
-	fprintf(stdout, "128Mbit bitmap: Number of bits set:%u, Fraction positive:%Lf\n", num_bitmap_loads_128M, load128M);
-	fprintf(stdout, "16Mbit bitmap: Number of bits set:%u, Fraction positive:%Lf\n", num_bitmap_loads_16M, load16M);
-	fprintf(stdout, "1Mbit bitmap: Number of bits set:%u, Fraction positive:%Lf\n", num_bitmap_loads_1M, load1M);
-	fprintf(stdout, "128Kbit bitmap: Number of bits set:%u, Fraction positive:%Lf\n", num_bitmap_loads_128k, load128k);
-	fprintf(stdout, "16Kbit bitmap: Number of bits set:%u, Fraction positive:%Lf\n", num_bitmap_loads_16k, load16k);
-	fprintf(stdout, "1Kbit bitmap: Number of bits set:%u, Fraction positive:%Lf\n", num_bitmap_loads_1k, load1k);
-
-	free(bitmap_1k);
-	free(bitmap_16k);
-	free(bitmap_128k);
-	free(bitmap_1M);
-	free(bitmap_16M);
-	free(bitmap_128M);
-	free(bitmap_1G);
-	free(bitmap_4G);
-
-	free(loaded_hashes_128);
 }
 
 unsigned int next_prime(unsigned int num)
@@ -573,6 +459,7 @@ unsigned int next_prime(unsigned int num)
 	else
 		return 1;*/
 }
+
 void create_perfect_hash_table()
 {
 	long double multiplier_ht, multiplier_ot;
@@ -601,7 +488,6 @@ void create_perfect_hash_table()
 		get_offset = get_offset_128;
 		allocate_ht = allocate_ht_128;
 		loaded_hashes = loaded_hashes_128;
-		hash_table = hash_table_128;
 		test_tables = test_tables_128;
 		fprintf(stdout, "Using Hash type 128.\n");
 	}
@@ -614,7 +500,6 @@ void create_perfect_hash_table()
 		get_offset = get_offset_192;
 		allocate_ht = allocate_ht_192;
 		loaded_hashes = loaded_hashes_192;
-		hash_table = hash_table_192;
 		test_tables = test_tables_192;
 		fprintf(stdout, "Using Hash type 192.\n");
 	}
@@ -666,7 +551,10 @@ void create_perfect_hash_table()
 		release_all_lists();
 		free(offset_data);
 		free(offset_table);
-		free(hash_table);
+		if (hash_type == 128)
+			free(hash_table_128);
+		else if (hash_type == 192)
+			free(hash_table_192);
 
 		temp = next_prime(approx_offset_table_sz % 10);
 		approx_offset_table_sz /= 10;

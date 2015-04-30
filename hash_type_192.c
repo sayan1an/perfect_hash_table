@@ -123,7 +123,7 @@ void test_tables_192(OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_
 void load_hashes_160()
 {
 	FILE *fp;
-	char filename[200] = "10M_sha";
+	char filename[200] = "100M_sha";
 	char string_a[9], string_b[9], string_c[9], string_d[9], string_e[9];
 	unsigned int iter, shift64;
 
