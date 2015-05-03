@@ -1,3 +1,9 @@
+/*
+ * This software is Copyright (c) 2015 Sayantan Datta <std2048 at gmail dot com>
+ * and it is hereby released to the general public under the following terms:
+ * Redistribution and use in source and binary forms, with or without modification, are permitted.
+ */
+
 #include "interface.h"
 
 extern uint128_t *loaded_hashes_128;
