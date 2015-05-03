@@ -78,7 +78,7 @@ unsigned int get_offset_128(unsigned int hash_table_idx, unsigned int hash_locat
 	return (hash_table_size - z + hash_table_idx);
 }
 
-void test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_size, unsigned int shift64_ot_sz, unsigned int shift128_ot_sz)
+int test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_size, unsigned int shift64_ot_sz, unsigned int shift128_ot_sz)
 {
 	unsigned char *hash_table_collisions;
 	unsigned int i, hash_table_idx, error = 1, count = 0;
@@ -115,10 +115,13 @@ void test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_t
 	if (count != num_loaded_hashes) {
 		error = 0;
 		fprintf(stderr, "Error!! Tables contains extra or less entries.\n");
+		return 0;
 	}
 
 	free(hash_table_collisions);
 
 	if (error)
-		fprintf(stderr, "Tables TESTED OK\n");
+		fprintf(stdout, "Tables TESTED OK\n");
+
+	return 1;
 }

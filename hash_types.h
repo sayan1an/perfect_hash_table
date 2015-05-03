@@ -20,7 +20,7 @@ extern unsigned int zero_check_ht_128(unsigned int);
 extern void assign_ht_128(unsigned int, unsigned int);
 extern void assign0_ht_128(unsigned int);
 extern unsigned int get_offset_128(unsigned int, unsigned int);
-extern void test_tables_128(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
+extern int test_tables_128(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
 
 extern unsigned int modulo192_31b(uint192_t, unsigned int, uint64_t, uint64_t);
 extern void allocate_ht_192(unsigned int);
@@ -29,4 +29,4 @@ extern unsigned int zero_check_ht_192(unsigned int);
 extern void assign_ht_192(unsigned int, unsigned int);
 extern void assign0_ht_192(unsigned int);
 extern unsigned int get_offset_192(unsigned int, unsigned int);
-extern void test_tables_192(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
+extern int test_tables_192(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);

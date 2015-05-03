@@ -34,7 +34,7 @@ static void (*assign0_ht)(unsigned int);
 static unsigned int (*calc_ht_idx)(unsigned int, unsigned int);
 static unsigned int (*get_offset)(unsigned int, unsigned int);
 static void (*allocate_ht)(unsigned int);
-static void (*test_tables)(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
+static int (*test_tables)(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
 static void *loaded_hashes;
 static unsigned int hash_type = 0;
 static unsigned int binary_size_actual = 0;
@@ -153,7 +153,7 @@ static void init_tables(unsigned int approx_offset_table_sz, unsigned int approx
 	unsigned int i, max_collisions, offset_data_idx;
 	uint64_t shift128;
 
-	fprintf(stderr, "Initialing Tables...");
+	fprintf(stdout, "Initialing Tables...");
 
 	total_memory_in_bytes = 0;
 
@@ -173,10 +173,10 @@ static void init_tables(unsigned int approx_offset_table_sz, unsigned int approx
 	shift64_ht_sz = (((1ULL << 63) % hash_table_size) * 2) % hash_table_size;
 	shift64_ot_sz = (((1ULL << 63) % offset_table_size) * 2) % offset_table_size;
 
-	shift128 = shift64_ht_sz * shift64_ht_sz;
+	shift128 = (uint64_t)shift64_ht_sz * shift64_ht_sz;
 	shift128_ht_sz = shift128 % hash_table_size;
 
-	shift128 = shift64_ot_sz * shift64_ot_sz;
+	shift128 = (uint64_t)shift64_ot_sz * shift64_ot_sz;
 	shift128_ot_sz = shift128 % offset_table_size;
 
 	offset_table = (OFFSET_TABLE_WORD *) malloc(offset_table_size * sizeof(OFFSET_TABLE_WORD));
@@ -327,7 +327,7 @@ static unsigned int create_tables()
 			if (offset >= hash_table_size) offset = 0;
 			num_iter++;
 		}
-		//fprintf(stderr, "Backtracking...\n");
+		//fprintf(stdout, "Backtracking...\n");
 		offset_table[offset_data[i].offset_table_idx] = offset;
 
 		if (num_iter == limit) {
@@ -460,9 +460,9 @@ static unsigned int next_prime(unsigned int num)
 		return 1;*/
 }
 
-void create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
+int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 			       unsigned int num_ld_hashes,
-			       OFFSET_TABLE_WORD *offset_table_ptr,
+			       OFFSET_TABLE_WORD **offset_table_ptr,
 			       unsigned int *offset_table_sz_ptr,
 			       unsigned int *hash_table_sz_ptr)
 {
@@ -572,9 +572,9 @@ void create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 	release_all_lists();
 	free(offset_data);
 
-	test_tables(num_loaded_hashes, offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz);
-
-	offset_table_ptr = offset_table;
+	*offset_table_ptr = offset_table;
 	*hash_table_sz_ptr = hash_table_size;
 	*offset_table_sz_ptr = offset_table_size;
+
+	return test_tables(num_loaded_hashes, offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz);
 }

@@ -18,11 +18,17 @@ typedef struct {
 	uint64_t HI;
 } uint192_t;
 
-extern uint128_t *hash_table_128;
-extern uint192_t *hash_table_192;
+extern uint128_t *hash_table_128; // Hash Table for 128 bit hashes.
+extern uint192_t *hash_table_192; // Hash Table for 192 bit hashes.
 
-extern void create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
-			       unsigned int num_ld_hashes,
-			       OFFSET_TABLE_WORD *offset_table_ptr,
-			       unsigned int *offset_table_sz_ptr,
-			       unsigned int *hash_table_sz_ptr);
+/*
+ * Function to build a Perfect Hash Table from an array of hashes.
+ * Warning: loaded_hashes_ptr must be of type 'uint128_t *' for hashes <= 128bit and 'uint192_t *'
+ * for hashes <=192bit
+ */
+extern int create_perfect_hash_table(int htype, // Hash type, currenty supported upto 192 bit hashes.
+			       void *loaded_hashes_ptr, // Pass a pointer to an array containing hashes of type uint128_t or uint192_t.
+			       unsigned int num_ld_hashes, // Pass number of hashes in stored in the array.
+			       OFFSET_TABLE_WORD **offset_table_ptr, // Returns a pointer to the Offset Table.
+			       unsigned int *offset_table_sz_ptr, // Returns the size of Offset Table.
+			       unsigned int *hash_table_sz_ptr); // Returns the size of Hash Table.

@@ -12,15 +12,13 @@ static unsigned int hash_table_size = 0;
 
 static unsigned int total_memory_in_bytes = 0;
 
-static void load_hashes_128()
+static void load_hashes_128(char *filename)
 {
-#define NO_MODULO_TEST
 	FILE *fp;
-	char filename[200] = "35M";
 	char string_a[9], string_b[9], string_c[9], string_d[9];
 	unsigned int iter, shift64;
 
-	fprintf(stderr, "Loading Hashes...");
+	fprintf(stdout, "Loading Hashes...");
 
 	fp = fopen(filename, "r");
 	if (fp == NULL) {
@@ -43,10 +41,7 @@ static void load_hashes_128()
 	shift64 = (((1ULL << 63) % num_loaded_hashes) * 2) % num_loaded_hashes;
 
 	while(fscanf(fp, "%08s%08s%08s%08s\n", string_a, string_b, string_c, string_d) == 4) {
-#ifndef NO_MODULO_TEST
-		unsigned int p ,q;
-		unsigned __int128 test;
-#endif
+
 		uint128_t input_hash_128;
 		unsigned int a, b, c, d;
 
@@ -62,18 +57,9 @@ static void load_hashes_128()
 
 		loaded_hashes_128[iter++] = input_hash_128;
 
-#ifndef NO_MODULO_TEST
-		test = ((unsigned __int128)d << 96) + ((unsigned __int128)c << 64) + ((unsigned __int128)b << 32) + ((unsigned __int128)a);
-		p = test % num_loaded_hashes;
-		q = modulo128_31b(input_hash_128, num_loaded_hashes, shift64);
-		if (p != q) {
-			fprintf(stderr, "Error with modulo operation!!\n");
-			exit(0);
-		}
-#endif
 	}
 
-	fprintf(stderr, "Done.\n");
+	fprintf(stdout, "Done.\n");
 
 	fprintf(stdout, "Number of loaded hashes(in millions):%Lf\n", (long double)num_loaded_hashes/ ((long double)1000.00 * 1000.00));
 	fprintf(stdout, "Size of Loaded Hashes(in GBs):%Lf\n\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
@@ -81,14 +67,13 @@ static void load_hashes_128()
 	fclose(fp);
 }
 
-static void load_hashes_160()
+static void load_hashes_160(char *filename)
 {
 	FILE *fp;
-	char filename[200] = "30M_sha";
 	char string_a[9], string_b[9], string_c[9], string_d[9], string_e[9];
 	unsigned int iter, shift64;
 
-	fprintf(stderr, "Loading Hashes...");
+	fprintf(stdout, "Loading Hashes...");
 
 	fp = fopen(filename, "r");
 	if (fp == NULL) {
@@ -130,7 +115,7 @@ static void load_hashes_160()
 		loaded_hashes_192[iter++] = input_hash_192;
 	}
 
-	fprintf(stderr, "Done.\n");
+	fprintf(stdout, "Done.\n");
 
 	fprintf(stdout, "Number of loaded hashes(in millions):%Lf\n", (long double)num_loaded_hashes/ ((long double)1000.00 * 1000.00));
 	fprintf(stdout, "Size of Loaded Hashes(in GBs):%Lf\n\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
@@ -138,27 +123,96 @@ static void load_hashes_160()
 	fclose(fp);
 }
 
-int main()
+static unsigned int modulo192_31b(uint192_t a, unsigned int N)
 {
-	/*load_hashes_128();
+	uint64_t p, shift128, shift64, temp;
+	unsigned int temp2;
+
+	shift64 = (((1ULL << 63) % N) * 2) % N;
+	shift128 = (shift64 * shift64) % N;
+
+	p = (a.HI % N) * shift128;
+	p += (a.MI % N) * shift64;
+	p += a.LO % N;
+	p %= N;
+	return (unsigned int)p;
+}
+
+static uint192_t add192(uint192_t a, unsigned int b)
+{
+	uint192_t result;
+	result.LO = a.LO + b;
+	result.MI = a.MI + (result.LO < a.LO);
+	result.HI = a.HI + (result.MI < a.MI);
+	if (result.HI < a.HI) {
+		fprintf(stderr, "192 bit add overflow!!\n");
+		exit(0);
+	}
+
+	return result;
+}
+
+int main(int argc, char *argv[])
+{
+	if ( argc != 2 ) {
+		fprintf(stderr, "Please Enter a File Name");
+	}
+
+	unsigned int offset_table_index, hash_table_index, lookup;
+	uint192_t temp;
+
+	// Building 128 bit tables.
+	/*load_hashes_128(argv[1]);
 
 	create_perfect_hash_table(128, (void *)loaded_hashes_128,
 			       num_loaded_hashes,
-			       offset_table,
+			       &offset_table,
 			       &offset_table_size,
 			       &hash_table_size);*/
 
-	load_hashes_160();
+	// Building 192 bit tables
+	/*
+	 * Load 160bit hashes into the array 'loaded_hashes_192'
+	 */
+	load_hashes_160(argv[1]);
 
-	create_perfect_hash_table(192, (void *)loaded_hashes_192,
+	/*
+	 * Build the tables.
+	 */
+	if (create_perfect_hash_table(192, (void *)loaded_hashes_192,
 			       num_loaded_hashes,
-			       offset_table,
+			       &offset_table,
 			       &offset_table_size,
-			       &hash_table_size);
+			       &hash_table_size)) {
+
+		/*
+		 * Demo use of tables.
+		 */
+		lookup = 3;
+
+		/*
+		 * Perform a Lookup into hash table and compute location
+		 * in hash table corresponding to item at location '3' in
+		 * hash array.
+		 */
+		offset_table_index = modulo192_31b(loaded_hashes_192[lookup], offset_table_size);
+		temp = add192(loaded_hashes_192[lookup], (unsigned int)offset_table[offset_table_index]);
+		hash_table_index = modulo192_31b(temp, hash_table_size);
+
+		if (hash_table_192[hash_table_index].LO == loaded_hashes_192[lookup].LO &&
+		    hash_table_192[hash_table_index].MI == loaded_hashes_192[lookup].MI &&
+		    hash_table_192[hash_table_index].HI == loaded_hashes_192[lookup].HI)
+			fprintf(stdout, "Lookup successful.\n");
+		else
+			fprintf(stderr, "Lookup failed.\n");
+	}
+	else {
+		free(hash_table_192);
+		free(offset_table);
+	}
 
 	free(loaded_hashes_128);
 	free(loaded_hashes_192);
 
 	return 0;
 }
-
