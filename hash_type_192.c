@@ -30,7 +30,7 @@ inline uint192_t add192(uint192_t a, unsigned int b)
 	return result;
 }
 
-void allocate_ht_192()
+void allocate_ht_192(unsigned int num_loaded_hashes)
 {
 	int i;
 
@@ -74,7 +74,7 @@ unsigned int get_offset_192(unsigned int hash_table_idx, unsigned int hash_locat
 	return (hash_table_size - z + hash_table_idx);
 }
 
-void test_tables_192(OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_size, unsigned int shift64_ot_sz, unsigned int shift128_ot_sz)
+void test_tables_192(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_size, unsigned int shift64_ot_sz, unsigned int shift128_ot_sz)
 {
 	unsigned char *hash_table_collisions;
 	unsigned int i, hash_table_idx, error = 1, count = 0;
@@ -118,61 +118,4 @@ void test_tables_192(OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_
 
 	if (error)
 		fprintf(stderr, "Tables TESTED OK\n");
-}
-
-void load_hashes_160()
-{
-	FILE *fp;
-	char filename[200] = "100M_sha";
-	char string_a[9], string_b[9], string_c[9], string_d[9], string_e[9];
-	unsigned int iter, shift64;
-
-	fprintf(stderr, "Loading Hashes...");
-
-	fp = fopen(filename, "r");
-	if (fp == NULL) {
-		fprintf(stderr, "Error reading file.\n");
-		exit(0);
-	}
-	while (fscanf(fp, "%08s%08s%08s%08s%08s\n", string_a, string_b, string_c, string_d, string_e) == 5) num_loaded_hashes++;
-	fclose(fp);
-
-	fp = fopen(filename, "r");
-	if (fp == NULL) {
-		fprintf(stderr, "Error reading file.\n");
-		exit(0);
-	}
-
-	loaded_hashes_192 = (uint192_t *) calloc(num_loaded_hashes, sizeof(uint192_t));
-	total_memory_in_bytes += (unsigned long long)num_loaded_hashes * sizeof(uint192_t);
-
-	iter = 0;
-	shift64 = (((1ULL << 63) % num_loaded_hashes) * 2) % num_loaded_hashes;
-
-	while(fscanf(fp, "%08s%08s%08s%08s%08s\n", string_a, string_b, string_c, string_d, string_e) == 5) {
-
-		uint192_t input_hash_192;
-		unsigned int a, b, c, d, e;
-
-		string_a[8] = string_b[8] = string_c[8] = string_d[8] = string_e[8] = 0;
-
-		a = (unsigned int) strtol(string_a, NULL, 16);
-		b = (unsigned int) strtol(string_b, NULL, 16);
-		c = (unsigned int) strtol(string_c, NULL, 16);
-		d = (unsigned int) strtol(string_d, NULL, 16);
-		e = (unsigned int) strtol(string_e, NULL, 16);
-
-		input_hash_192.HI = (uint64_t)e;
-		input_hash_192.MI = ((uint64_t)d << 32) | (uint64_t)c;
-		input_hash_192.LO = ((uint64_t)b << 32) | (uint64_t)a;
-
-		loaded_hashes_192[iter++] = input_hash_192;
-	}
-
-	fprintf(stderr, "Done.\n");
-
-	fprintf(stdout, "Number of loaded hashes(in millions):%Lf\n", (long double)num_loaded_hashes/ ((long double)1000.00 * 1000.00));
-	fprintf(stdout, "Size of Loaded Hashes(in GBs):%Lf\n\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
-
-	fclose(fp);
 }
