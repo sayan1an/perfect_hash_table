@@ -18,8 +18,8 @@ typedef struct {
 	uint64_t HI;
 } uint192_t;
 
-extern uint128_t *hash_table_128; // Hash Table for 128 bit hashes.
-extern uint192_t *hash_table_192; // Hash Table for 192 bit hashes.
+extern unsigned int *hash_table_128; // Hash Table for 128 bit hashes.
+extern unsigned int *hash_table_192; // Hash Table for 192 bit hashes.
 
 /*
  * Function to build a Perfect Hash Table from an array of hashes.

@@ -9,7 +9,7 @@
 #include "hash_types.h"
 
 uint128_t *loaded_hashes_128 = NULL;
-uint128_t *hash_table_128 = NULL;
+unsigned int *hash_table_128 = NULL;
 
 /* Assuming N < 0x7fffffff */
 inline unsigned int modulo128_31b(uint128_t a, unsigned int N, uint64_t shift64)
@@ -38,18 +38,20 @@ void allocate_ht_128(unsigned int num_loaded_hashes)
 {
 	int i;
 
-	if (posix_memalign((void **)&hash_table_128, 16, hash_table_size * sizeof(uint128_t))) {
+	if (posix_memalign((void **)&hash_table_128, 16, 4 * hash_table_size * sizeof(unsigned int))) {
 		fprintf(stderr, "Couldn't allocate memory!!\n");
 		exit(0);
 	}
 
 	for (i = 0; i < hash_table_size; i++)
-		hash_table_128[i].HI64 = hash_table_128[i].LO64 = 0;
+		hash_table_128[i] = hash_table_128[i + hash_table_size]
+			= hash_table_128[i + 2 * hash_table_size]
+			= hash_table_128[i + 3 * hash_table_size] = 0;
 
-	total_memory_in_bytes += hash_table_size * sizeof(uint128_t);
+	total_memory_in_bytes += 4 * hash_table_size * sizeof(unsigned int);
 
 	fprintf(stdout, "Hash Table Size %Lf %% of Number of Loaded Hashes.\n", ((long double)hash_table_size / (long double)num_loaded_hashes) * 100.00);
-	fprintf(stdout, "Hash Table Size(in GBs):%Lf\n", ((long double)hash_table_size * sizeof(uint128_t)) / ((long double)1024 * 1024 * 1024));
+	fprintf(stdout, "Hash Table Size(in GBs):%Lf\n", ((long double)4.0 * hash_table_size * sizeof(unsigned int)) / ((long double)1024 * 1024 * 1024));
 }
 
 inline unsigned int calc_ht_idx_128(unsigned int hash_location, unsigned int offset)
@@ -59,17 +61,25 @@ inline unsigned int calc_ht_idx_128(unsigned int hash_location, unsigned int off
 
 inline unsigned int zero_check_ht_128(unsigned int hash_table_idx)
 {
-	return ((hash_table_128[hash_table_idx].HI64 || hash_table_128[hash_table_idx].LO64));
+	return ((hash_table_128[hash_table_idx] || hash_table_128[hash_table_idx + hash_table_size] ||
+		hash_table_128[hash_table_idx + 2 * hash_table_size] ||
+		hash_table_128[hash_table_idx + 3 * hash_table_size]));
 }
 
 inline void assign_ht_128(unsigned int hash_table_idx, unsigned int hash_location)
 {
-	hash_table_128[hash_table_idx] = loaded_hashes_128[hash_location];
+	uint128_t hash = loaded_hashes_128[hash_location];
+	hash_table_128[hash_table_idx] = (unsigned int)(hash.LO64 & 0xffffffff);
+	hash_table_128[hash_table_idx + hash_table_size] = (unsigned int)(hash.LO64 >> 32);
+	hash_table_128[hash_table_idx + 2 * hash_table_size] = (unsigned int)(hash.HI64 & 0xffffffff);
+	hash_table_128[hash_table_idx + 3 * hash_table_size] = (unsigned int)(hash.HI64 >> 32);
 }
 
 inline void assign0_ht_128(unsigned int hash_table_idx)
 {
-	hash_table_128[hash_table_idx].HI64 = hash_table_128[hash_table_idx].LO64 = 0;
+	hash_table_128[hash_table_idx] = hash_table_128[hash_table_idx + hash_table_size]
+			= hash_table_128[hash_table_idx + 2 * hash_table_size]
+			= hash_table_128[hash_table_idx + 3 * hash_table_size] = 0;
 }
 
 unsigned int get_offset_128(unsigned int hash_table_idx, unsigned int hash_location)
@@ -82,23 +92,27 @@ int test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_ta
 {
 	unsigned char *hash_table_collisions;
 	unsigned int i, hash_table_idx, error = 1, count = 0;
+	uint128_t hash;
 
 	hash_table_collisions = (unsigned char *) calloc(hash_table_size, sizeof(unsigned char));
 
-#pragma omp parallel private(i, hash_table_idx)
+#pragma omp parallel private(i, hash_table_idx, hash)
 	{
 #pragma omp for
 		for (i = 0; i < num_loaded_hashes; i++) {
+			hash = loaded_hashes_128[i];
 			hash_table_idx =
 				calc_ht_idx_128(i,
 					(unsigned int)offset_table[
-					modulo128_31b(loaded_hashes_128[i],
+					modulo128_31b(hash,
 					offset_table_size, shift64_ot_sz)]);
 #pragma omp atomic
 			hash_table_collisions[hash_table_idx]++;
 
-			if (error && (hash_table_128[hash_table_idx].HI64 != loaded_hashes_128[i].HI64 ||
-			    hash_table_128[hash_table_idx].LO64 != loaded_hashes_128[i].LO64 ||
+			if (error && (hash_table_128[hash_table_idx] != (unsigned int)(hash.LO64 & 0xffffffff)  ||
+			    hash_table_128[hash_table_idx + hash_table_size] != (unsigned int)(hash.LO64 >> 32) ||
+			    hash_table_128[hash_table_idx + 2 * hash_table_size] != (unsigned int)(hash.HI64 & 0xffffffff) ||
+			    hash_table_128[hash_table_idx + 3 * hash_table_size] != (unsigned int)(hash.HI64 >> 32) ||
 			    hash_table_collisions[hash_table_idx] > 1)) {
 				fprintf(stderr, "Error building tables: Loaded hash Idx:%u, No. of Collosions:%u\n", i, hash_table_collisions[hash_table_idx]);
 				error = 0;
