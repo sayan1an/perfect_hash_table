@@ -206,6 +206,7 @@ int main(int argc, char *argv[])
 		 * Demo use of tables.
 		 */
 		lookup = 3;
+		if (lookup >= num_loaded_hashes) lookup = num_loaded_hashes - 1;
 
 		/*
 		 * Perform a Lookup into hash table and compute location
@@ -248,6 +249,7 @@ int main(int argc, char *argv[])
 		 * Demo use of tables.
 		 */
 		lookup = 3;
+		if (lookup >= num_loaded_hashes) lookup = num_loaded_hashes - 1;
 
 		/*
 		 * Perform a Lookup into hash table and compute location

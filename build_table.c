@@ -330,33 +330,6 @@ static unsigned int create_tables()
 		//fprintf(stdout, "Backtracking...\n");
 		offset_table[offset_data[i].offset_table_idx] = offset;
 
-		if (num_iter == limit) {
-			unsigned int j, backtrack_steps, iter;
-
-			done -= offset_data[i].collisions;
-			offset_table[offset_data[i].offset_table_idx] = 0;
-
-			backtrack_steps = 1;
-			j = 1;
-			while (j <= backtrack_steps) {
-				last_offset = offset_table[offset_data[i - j].offset_table_idx];
-				iter = 0;
-				while (iter < offset_data[i - j].collisions) {
-					hash_table_idx = calc_ht_idx(offset_data[i - j].hash_location_list[iter], last_offset);
-					assign0_ht(hash_table_idx);
-					iter++;
-				}
-				offset_table[offset_data[i - j].offset_table_idx] = 0;
-				done -= offset_data[i - j].collisions;
-				j++;
-			}
-			i -= backtrack_steps;
-
-			backtracking = 1;
-
-			i--;
-		}
-
 		if ((trigger & 0xffff) == 0) {
 			trigger = 0;
 			fprintf(stdout, "\rProgress:%Lf %%, Number of collisions:%u", done / (long double)num_loaded_hashes * 100.00, offset_data[i].collisions);
@@ -371,6 +344,33 @@ static unsigned int create_tables()
 		}
 
 		trigger++;
+
+		if (num_iter == limit) {
+			unsigned int j, backtrack_steps, iter;
+
+			done -= offset_data[i].collisions;
+			offset_table[offset_data[i].offset_table_idx] = 0;
+
+			backtrack_steps = 1;
+			j = 1;
+			while (j <= backtrack_steps && (int)(i - j) >= 0) {
+				last_offset = offset_table[offset_data[i - j].offset_table_idx];
+				iter = 0;
+				while (iter < offset_data[i - j].collisions) {
+					hash_table_idx = calc_ht_idx(offset_data[i - j].hash_location_list[iter], last_offset);
+					assign0_ht(hash_table_idx);
+					iter++;
+				}
+				offset_table[offset_data[i - j].offset_table_idx] = 0;
+				done -= offset_data[i - j].collisions;
+				j++;
+			}
+			i -= (j - 1);
+
+			backtracking = 1;
+			continue;
+		}
+
 		i++;
 	}
 
@@ -533,7 +533,7 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 
 	multiplier_ht = 1.001097317;
 
-	approx_offset_table_sz = (((long double)num_loaded_hashes / 4.0) * multiplier_ot);
+	approx_offset_table_sz = (((long double)num_loaded_hashes / 4.0) * multiplier_ot + 10.00);
 	approx_hash_table_sz = ((long double)num_loaded_hashes * multiplier_ht);
 
 	i = 0;
@@ -563,7 +563,7 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		if (!(i % 5)) {
 			multiplier_ot += 0.05;
 			multiplier_ht += 0.005;
-			approx_offset_table_sz = (((long double)num_loaded_hashes / 4.0) * multiplier_ot);
+			approx_offset_table_sz = (((long double)num_loaded_hashes / 4.0) * multiplier_ot + 10.00);
 			approx_hash_table_sz = ((long double)num_loaded_hashes * multiplier_ht);
 		}
 
