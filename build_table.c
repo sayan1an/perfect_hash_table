@@ -317,7 +317,7 @@ static unsigned int create_tables()
 		offset = (OFFSET_TABLE_WORD)(randomMT() & bitmap) % hash_table_size;
 
 		if (backtracking) {
-			offset = (last_offset + 1);
+			offset = (last_offset + 1) % hash_table_size;
 			backtracking = 0;
 		}
 
@@ -466,7 +466,7 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 			       unsigned int *offset_table_sz_ptr,
 			       unsigned int *hash_table_sz_ptr)
 {
-	long double multiplier_ht, multiplier_ot;
+	long double multiplier_ht, multiplier_ot, inc_ht, inc_ot;
 	unsigned int approx_hash_table_sz, approx_offset_table_sz, i;
 
 	total_memory_in_bytes = 0;
@@ -503,7 +503,15 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 
 	signal(SIGALRM, alarm_handler);
 
-	if (num_loaded_hashes <= 1000)
+	inc_ht = 0.005;
+	inc_ot = 0.05;
+
+	if (num_loaded_hashes <= 100) {
+		multiplier_ot = 1.501375173;
+		inc_ht = 0.05;
+		inc_ot = 0.5;
+	}
+	else if (num_loaded_hashes <= 1000)
 		multiplier_ot = 1.101375173;
 	else if (num_loaded_hashes <= 10000)
 		multiplier_ot = 1.151375173;
@@ -561,8 +569,8 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		i++;
 
 		if (!(i % 5)) {
-			multiplier_ot += 0.05;
-			multiplier_ht += 0.005;
+			multiplier_ot += inc_ot;
+			multiplier_ht += inc_ht;
 			approx_offset_table_sz = (((long double)num_loaded_hashes / 4.0) * multiplier_ot + 10.00);
 			approx_hash_table_sz = ((long double)num_loaded_hashes * multiplier_ht);
 		}
