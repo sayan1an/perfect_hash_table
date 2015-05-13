@@ -145,3 +145,92 @@ int test_tables_192(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_ta
 
 	return 1;
 }
+
+unsigned int remove_duplicate_192(unsigned int num_loaded_hashes, unsigned int hash_table_size)
+{
+	unsigned int i, num_unique_hashes;
+	typedef struct {
+		unsigned int *hash_location_list;
+		unsigned short collisions;
+		unsigned short iter;
+		unsigned int hash_table_idx;
+	} hash_table_data;
+
+	hash_table_data *hash_table = (hash_table_data *) malloc(hash_table_size * sizeof(hash_table_data));
+
+	for (i = 0; i < hash_table_size; i++) {
+		hash_table[i].collisions = 0;
+		hash_table[i].iter = 0;
+		hash_table[i].hash_location_list = NULL;
+		hash_table[i].hash_table_idx = i;
+	}
+
+	for (i = 0; i < num_loaded_hashes; i++) {
+		unsigned int idx = loaded_hashes_192[i].LO & (hash_table_size - 1);
+		hash_table[idx].collisions++;
+	}
+
+	for (i = 0; i < hash_table_size; i++)
+	      if (hash_table[i].collisions > 1)
+			hash_table[i].hash_location_list = (unsigned int*) malloc(hash_table[i].collisions * sizeof(unsigned int));
+
+	for (i = 0; i < num_loaded_hashes; i++) {
+		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
+
+		if (hash_table[idx].collisions > 1) {
+			unsigned int iter = hash_table[idx].iter;
+
+			if (!iter)
+				hash_table[idx].hash_location_list[iter++] = i;
+
+			else if (hash_table[idx].collisions > 2) {
+				unsigned int j;
+				for (j = 0; j < iter; j++)
+					if (loaded_hashes_192[hash_table[idx].hash_location_list[j]].LO == loaded_hashes_192[i].LO &&
+					    loaded_hashes_192[hash_table[idx].hash_location_list[j]].MI == loaded_hashes_192[i].MI &&
+					    loaded_hashes_192[hash_table[idx].hash_location_list[j]].HI == loaded_hashes_192[i].HI ) {
+						loaded_hashes_192[i].LO = loaded_hashes_192[i].MI = loaded_hashes_192[i].HI = 0;
+						break;
+					}
+				if (j == iter)
+					hash_table[idx].hash_location_list[iter++] = i;
+			}
+
+			else if (hash_table[idx].collisions == 2)
+				if (loaded_hashes_192[hash_table[idx].hash_location_list[0]].LO == loaded_hashes_192[i].LO &&
+				    loaded_hashes_192[hash_table[idx].hash_location_list[0]].MI == loaded_hashes_192[i].MI &&
+				    loaded_hashes_192[hash_table[idx].hash_location_list[0]].HI == loaded_hashes_192[i].HI)
+					loaded_hashes_192[i].LO = loaded_hashes_192[i].MI = loaded_hashes_192[i].HI = 0;
+
+			hash_table[idx].iter = iter;
+		}
+
+	}
+
+	for (i = num_loaded_hashes - 1; i >= 0; i--)
+		if (loaded_hashes_192[i].LO || loaded_hashes_192[i].MI || loaded_hashes_192[i].HI) {
+			num_unique_hashes = i;
+			break;
+		}
+
+	for (i = 0; i <= num_unique_hashes; i++)
+		if (loaded_hashes_192[i].LO == 0 && loaded_hashes_192[i].MI == 0 && loaded_hashes_192[i].HI == 0) {
+			unsigned int j;
+			loaded_hashes_192[i] = loaded_hashes_192[num_unique_hashes];
+			loaded_hashes_192[num_unique_hashes].LO = loaded_hashes_192[num_unique_hashes].MI =
+				loaded_hashes_192[num_unique_hashes].HI = 0;
+			num_unique_hashes--;
+			for (j = num_unique_hashes; j >= 0; j--)
+				if (loaded_hashes_192[j].LO || loaded_hashes_192[j].MI || loaded_hashes_192[j].HI) {
+					num_unique_hashes = j;
+					break;
+				}
+		}
+
+	for (i = 0; i < hash_table_size; i++)
+	      if (hash_table[i].collisions > 1)
+			free(hash_table[i].hash_location_list);
+	free(hash_table);
+
+	return (num_unique_hashes + 1);
+}
