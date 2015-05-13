@@ -146,7 +146,7 @@ int test_tables_192(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_ta
 	return 1;
 }
 
-unsigned int remove_duplicate_192(unsigned int num_loaded_hashes, unsigned int hash_table_size)
+unsigned int remove_duplicates_192(unsigned int num_loaded_hashes, unsigned int hash_table_size)
 {
 	unsigned int i, num_unique_hashes;
 	typedef struct {
@@ -155,6 +155,11 @@ unsigned int remove_duplicate_192(unsigned int num_loaded_hashes, unsigned int h
 		unsigned short iter;
 		unsigned int hash_table_idx;
 	} hash_table_data;
+
+	if (hash_table_size & (hash_table_size - 1)) {
+		fprintf(stderr, "Duplicate removal hash table size must power of 2.\n");
+		return 0;
+	}
 
 	hash_table_data *hash_table = (hash_table_data *) malloc(hash_table_size * sizeof(hash_table_data));
 
@@ -175,7 +180,7 @@ unsigned int remove_duplicate_192(unsigned int num_loaded_hashes, unsigned int h
 			hash_table[i].hash_location_list = (unsigned int*) malloc(hash_table[i].collisions * sizeof(unsigned int));
 
 	for (i = 0; i < num_loaded_hashes; i++) {
-		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
+		unsigned int idx = loaded_hashes_192[i].LO & (hash_table_size - 1);
 
 		if (hash_table[idx].collisions > 1) {
 			unsigned int iter = hash_table[idx].iter;

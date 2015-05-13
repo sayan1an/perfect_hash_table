@@ -187,9 +187,9 @@ int main(int argc, char *argv[])
 	uint192_t temp;
 	uint128_t temp2;
 #if 1
-	// Building 192 bit tables
+	// Building 128 bit tables
 	/*
-	 * Load 160bit hashes into the array 'loaded_hashes_192'
+	 * Load 128bit hashes into the array 'loaded_hashes_192'
 	 */
 	load_hashes_128(argv[1]);
 

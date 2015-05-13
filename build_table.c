@@ -35,6 +35,7 @@ static unsigned int (*calc_ht_idx)(unsigned int, unsigned int);
 static unsigned int (*get_offset)(unsigned int, unsigned int);
 static void (*allocate_ht)(unsigned int);
 static int (*test_tables)(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
+static unsigned int (*remove_duplicates)(unsigned int, unsigned int);
 static void *loaded_hashes;
 static unsigned int hash_type = 0;
 static unsigned int binary_size_actual = 0;
@@ -467,13 +468,12 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 			       unsigned int *hash_table_sz_ptr)
 {
 	long double multiplier_ht, multiplier_ot, inc_ht, inc_ot;
-	unsigned int approx_hash_table_sz, approx_offset_table_sz, i;
+	unsigned int approx_hash_table_sz, approx_offset_table_sz, i, dupe_remove_ht_sz;
 
 	total_memory_in_bytes = 0;
 
 	hash_type = htype;
 	loaded_hashes = loaded_hashes_ptr;
-	num_loaded_hashes = num_ld_hashes;
 
 	if (hash_type == 128) {
 		zero_check_ht = zero_check_ht_128;
@@ -483,6 +483,7 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		get_offset = get_offset_128;
 		allocate_ht = allocate_ht_128;
 		test_tables = test_tables_128;
+		remove_duplicates = remove_duplicates_128;
 		loaded_hashes_128 = (uint128_t *)loaded_hashes;
 		binary_size_actual = 16;
 		fprintf(stdout, "Using Hash type 128.\n");
@@ -496,6 +497,7 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		get_offset = get_offset_192;
 		allocate_ht = allocate_ht_192;
 		test_tables = test_tables_192;
+		remove_duplicates = remove_duplicates_192;
 		loaded_hashes_192 = (uint192_t *)loaded_hashes;
 		binary_size_actual = 24;
 		fprintf(stdout, "Using Hash type 192.\n");
@@ -506,38 +508,58 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 	inc_ht = 0.005;
 	inc_ot = 0.05;
 
-	if (num_loaded_hashes <= 100) {
+	if (num_ld_hashes <= 100) {
 		multiplier_ot = 1.501375173;
 		inc_ht = 0.05;
 		inc_ot = 0.5;
+		dupe_remove_ht_sz = 128;
 	}
-	else if (num_loaded_hashes <= 1000)
+	else if (num_ld_hashes <= 1000) {
 		multiplier_ot = 1.101375173;
-	else if (num_loaded_hashes <= 10000)
+		dupe_remove_ht_sz = 1024;
+	}
+	else if (num_ld_hashes <= 10000) {
 		multiplier_ot = 1.151375173;
-	else if (num_loaded_hashes <= 100000)
+		dupe_remove_ht_sz = 16384;
+	}
+	else if (num_ld_hashes <= 100000) {
 		multiplier_ot = 1.20375173;
-	else if (num_loaded_hashes <= 1000000)
+		dupe_remove_ht_sz = 131072;
+	}
+	else if (num_ld_hashes <= 1000000) {
 		multiplier_ot = 1.25375173;
-	else if (num_loaded_hashes <= 10000000)
+		dupe_remove_ht_sz = 1048576;
+	}
+	else if (num_ld_hashes <= 10000000) {
 		multiplier_ot = 1.31375173;
-	else if (num_loaded_hashes <= 110000000) {
+		dupe_remove_ht_sz = 16777216;
+	}
+	else if (num_ld_hashes <= 110000000) {
 		multiplier_ot = 1.41375173;
 		alarm_start = 3;
 		alarm_repeat = 7;
+		dupe_remove_ht_sz = 134217728;
 	}
-	else if (num_loaded_hashes <= 200000000) {
+	else if (num_ld_hashes <= 200000000) {
 		multiplier_ot = 1.61375173;
 		alarm_start = 4;
 		alarm_repeat = 10;
+		dupe_remove_ht_sz = 134217728 * 2;
 	}
 	else {
 		fprintf(stderr, "This many number of hashes have never been tested before and might not succeed!!\n");
 		multiplier_ot = 3.01375173;
 		alarm_start = 5;
 		alarm_repeat = 15;
+		dupe_remove_ht_sz = 134217728 * 4;
 	}
 
+	num_loaded_hashes = remove_duplicates(num_ld_hashes, dupe_remove_ht_sz);
+	//num_loaded_hashes = num_ld_hashes;
+	if (!num_loaded_hashes) {
+		fprintf(stderr, "Failed to remove duplicates\n");
+		exit(0);
+	}
 
 	multiplier_ht = 1.001097317;
 

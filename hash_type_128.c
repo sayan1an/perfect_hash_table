@@ -140,7 +140,7 @@ int test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_ta
 	return 1;
 }
 
-unsigned int remove_duplicate_128(unsigned int num_loaded_hashes, unsigned int hash_table_size)
+unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int hash_table_size)
 {
 	unsigned int i, num_unique_hashes;
 	typedef struct {
@@ -150,8 +150,10 @@ unsigned int remove_duplicate_128(unsigned int num_loaded_hashes, unsigned int h
 		unsigned int hash_table_idx;
 	} hash_table_data;
 
-	hash_table_size = 1024 * 1024 * 128;
-	if (!hash_table_size) hash_table_size = 2;
+	if (hash_table_size & (hash_table_size - 1)) {
+		fprintf(stderr, "Duplicate removal hash table size must power of 2.\n");
+		return 0;
+	}
 
 	hash_table_data *hash_table = (hash_table_data *) malloc(hash_table_size * sizeof(hash_table_data));
 
