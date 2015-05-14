@@ -181,7 +181,7 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 	counter = 0;
 	for (i = 0; i < hash_table_size; i++)
 	      if (hash_table[i].collisions > 3)
-			hash_location_list[counter++] = (unsigned int *) malloc(hash_table[i].collisions * sizeof(unsigned int));
+			hash_location_list[counter++] = (unsigned int *) malloc((hash_table[i].collisions - 1) * sizeof(unsigned int));
 
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
@@ -228,7 +228,7 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 							loaded_hashes_128[i].LO64 = loaded_hashes_128[i].HI64 = 0;
 							break;
 						}
-					if (j == iter)
+					if (j == iter && iter < hash_table[idx].collisions - 1)
 						hash_location_list[hash_table[idx].idx_hash_loc_list][iter++] = i;
 				}
 				hash_table[idx].iter = iter;
