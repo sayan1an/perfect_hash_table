@@ -143,11 +143,13 @@ int test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_ta
 unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int hash_table_size)
 {
 	unsigned int i, num_unique_hashes, **hash_location_list, counter;
+#define COLLISION_DTYPE unsigned short
+	COLLISION_DTYPE *collisions;
 	typedef struct {
 		unsigned int store_loc1;
 		unsigned int store_loc2;
-		unsigned short collisions;
-		unsigned short iter;
+		COLLISION_DTYPE  collisions;
+		COLLISION_DTYPE iter;
 		unsigned int idx_hash_loc_list;
 	} hash_table_data;
 
@@ -157,36 +159,34 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 	}
 
 	hash_table_data *hash_table = (hash_table_data *) malloc(hash_table_size * sizeof(hash_table_data));
-
-	for (i = 0; i < hash_table_size; i++) {
-		hash_table[i].collisions = 0;
-		hash_table[i].iter = 0;
-		hash_table[i].store_loc1 = hash_table[i].store_loc2 =
-			hash_table[i].idx_hash_loc_list = 0xffffffff;
-	}
+	collisions = (COLLISION_DTYPE *) calloc(hash_table_size, sizeof(COLLISION_DTYPE));
 
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
-		hash_table[idx].collisions++;
+		collisions[idx]++;
 	}
 
 	counter = 0;
-	for (i = 0; i < hash_table_size; i++)
-		if (hash_table[i].collisions > 3) {
+	for (i = 0; i < hash_table_size; i++) {
+		 hash_table[i].collisions = collisions[i];
+		 hash_table[i].iter = 0;
+		 hash_table[i].store_loc1 = hash_table[i].store_loc2 =
+			hash_table[i].idx_hash_loc_list = 0xffffffff;
+		if (hash_table[i].collisions > 3)
 			hash_table[i].idx_hash_loc_list = counter++;
-	      }
+	}
 
 	hash_location_list = (unsigned int **) malloc(counter * sizeof(unsigned int *));
 
 	counter = 0;
 	for (i = 0; i < hash_table_size; i++)
-	      if (hash_table[i].collisions > 3)
-			hash_location_list[counter++] = (unsigned int *) malloc((hash_table[i].collisions - 1) * sizeof(unsigned int));
+	      if (collisions[i] > 3)
+			hash_location_list[counter++] = (unsigned int *) malloc((collisions[i] - 1) * sizeof(unsigned int));
 
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
 
-		if (hash_table[idx].collisions > 1) {
+		if (collisions[idx] > 1) {
 			if (hash_table[idx].collisions == 2) {
 				if (!hash_table[idx].iter) {
 					hash_table[idx].iter++;
@@ -255,11 +255,12 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 					break;
 				}
 		}
-
+#undef COLLISION_DTYPE
 	for (i = 0; i < counter; i++)
 		free(hash_location_list[i]);
 	free(hash_location_list);
 	free(hash_table);
+	free(collisions);
 	fprintf(stderr, "NUM UNIQUE HASHES:%u\n", num_unique_hashes + 1);
 	return (num_unique_hashes + 1);
 }
