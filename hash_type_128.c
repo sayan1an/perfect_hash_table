@@ -148,9 +148,9 @@ static void remove_duplicates_final(unsigned int num_loaded_hashes, unsigned int
 	typedef struct {
 		unsigned int store_loc1;
 		unsigned int store_loc2;
+		unsigned int idx_hash_loc_list;
 		COLLISION_DTYPE  collisions;
 		COLLISION_DTYPE iter;
-		unsigned int idx_hash_loc_list;
 	} hash_table_data;
 
 	hash_table_data *hash_table = (hash_table_data *) malloc(hash_table_size * sizeof(hash_table_data));
@@ -171,8 +171,7 @@ static void remove_duplicates_final(unsigned int num_loaded_hashes, unsigned int
 			hash_table[i].idx_hash_loc_list = counter++;
 	}
 
-	if (counter)
-		hash_location_list = (unsigned int **) malloc(counter * sizeof(unsigned int *));
+	hash_location_list = (unsigned int **) malloc((counter + 1) * sizeof(unsigned int *));
 
 	counter = 0;
 	for (i = 0; i < hash_table_size; i++)
@@ -274,8 +273,8 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 			 counter += (hash_table[i].collisions - 4);
 	}
 		fprintf(stderr, "BING1O%d\n", counter);
-	if (counter)
-		rehash_list = (unsigned int *) malloc(counter * sizeof(unsigned int));
+
+	rehash_list = (unsigned int *) malloc(counter  * sizeof(unsigned int));
 
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
@@ -361,8 +360,10 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 	free(hash_table);
 	free(collisions);
 
-	if (counter)
+	if (counter) {
 		remove_duplicates_final(counter, counter + counter >> 1, rehash_list);
+		free(rehash_list);
+	}
 
 	fprintf(stderr, "BINGO%d\n", counter);
 	for (i = num_loaded_hashes - 1; i >= 0; i--)
@@ -384,7 +385,7 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 				}
 		}
 #undef COLLISION_DTYPE
-	free(rehash_list);
+
 	fprintf(stderr, "NUM UNIQUE HASHES:%u\n", num_unique_hashes + 1);
 	return (num_unique_hashes + 1);
 }
