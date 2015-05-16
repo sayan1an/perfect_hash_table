@@ -259,23 +259,32 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 
 	hash_table_data *hash_table = (hash_table_data *) malloc(hash_table_size * sizeof(hash_table_data));
 	collisions = (COLLISION_DTYPE *) calloc(hash_table_size, sizeof(COLLISION_DTYPE));
-
+#pragma omp parallel private(i)
+{
+#pragma omp for
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
+#pragma omp atomic
 		collisions[idx]++;
 	}
 
 	counter = 0;
+#pragma omp barrier
+
+#pragma omp for
 	for (i = 0; i < hash_table_size; i++) {
 		 hash_table[i].collisions = collisions[i];
 		 hash_table[i].iter = 0;
 		 if (hash_table[i].collisions > 4)
-			 counter += (hash_table[i].collisions - 4);
+#pragma omp atomic
+			 counter += (hash_table[i].collisions - 3);
 	}
-		fprintf(stderr, "BING1O%d\n", counter);
+#pragma omp barrier
 
-	rehash_list = (unsigned int *) malloc(counter  * sizeof(unsigned int));
-
+#pragma omp sections
+{
+#pragma omp section
+{
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
 
@@ -289,7 +298,11 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 				loaded_hashes_128[i].LO64 = loaded_hashes_128[i].HI64 = 0;
 		}
 	}
+}
 
+#pragma omp section
+{
+	rehash_list = (unsigned int *) malloc(counter * sizeof(unsigned int));
 	counter = 0;
 	for (i = 0; i < num_loaded_hashes; i++) {
 		unsigned int idx = loaded_hashes_128[i].LO64 & (hash_table_size - 1);
@@ -357,15 +370,38 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 		}
 	}
 
-	free(hash_table);
-	free(collisions);
-
-	if (counter) {
+	if (counter)
 		remove_duplicates_final(counter, counter + counter >> 1, rehash_list);
-		free(rehash_list);
-	}
+	free(rehash_list);
 
-	fprintf(stderr, "BINGO%d\n", counter);
+
+}
+}
+}
+
+#if 1
+	{	unsigned int col1 = 0, col2 = 0, col3 = 0, col4 = 0, col5a = 0;
+		for (i = 0; i < hash_table_size; i++) {
+			if (collisions[i] == 1)
+				col1++;
+			else if (collisions[i] == 2)
+				col2++;
+			else if (collisions[i] == 3)
+				col3++;
+			else if (collisions[i] == 4)
+				col4++;
+			else if (collisions[i] > 4)
+				col5a += collisions[i];
+		}
+		col2 *= 2;
+		col3 *= 3;
+		col4 *= 4;
+		fprintf(stderr, "Statistics:%Lf %Lf %Lf %Lf %Lf\n", (long double)col1 / (long double)num_loaded_hashes,
+		  (long double)col2 / (long double)num_loaded_hashes, (long double)col3 / (long double)num_loaded_hashes,
+			(long double)col4 / (long double)num_loaded_hashes, (long double)col5a / (long double)num_loaded_hashes);
+
+	}
+#endif
 	for (i = num_loaded_hashes - 1; i >= 0; i--)
 		if (loaded_hashes_128[i].LO64 || loaded_hashes_128[i].HI64) {
 			num_unique_hashes = i;
@@ -385,7 +421,7 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 				}
 		}
 #undef COLLISION_DTYPE
-
-	fprintf(stderr, "NUM UNIQUE HASHES:%u\n", num_unique_hashes + 1);
+	free(collisions);
+	free(hash_table);
 	return (num_unique_hashes + 1);
 }
