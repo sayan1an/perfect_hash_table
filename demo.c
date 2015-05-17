@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
 	unsigned int offset_table_index, hash_table_index, lookup;
 	uint192_t temp;
 	uint128_t temp2;
-#if 1
+#if 0
 	// Building 128 bit tables
 	/*
 	 * Load 128bit hashes into the array 'loaded_hashes_192'
