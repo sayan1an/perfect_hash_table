@@ -140,6 +140,19 @@ int test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_ta
 	return 1;
 }
 
+#define check_equal(p, q) \
+	(loaded_hashes_128[p].LO64 == loaded_hashes_128[q].LO64 &&	\
+	 loaded_hashes_128[p].HI64 == loaded_hashes_128[q].HI64)
+
+#define check_non_zero(p) \
+	(loaded_hashes_128[p].LO64 || loaded_hashes_128[p].HI64)
+
+#define check_zero(p) \
+	(loaded_hashes_128[p].LO64 == 0 && loaded_hashes_128[p].HI64 == 0)
+
+#define set_zero(p) \
+	loaded_hashes_128[p].LO64 = loaded_hashes_128[p].HI64 = 0
+
 static void remove_duplicates_final(unsigned int num_loaded_hashes, unsigned int hash_table_size, unsigned int *rehash_list)
 {
 	unsigned int i, num_unique_hashes, **hash_location_list, counter;
@@ -187,9 +200,8 @@ static void remove_duplicates_final(unsigned int num_loaded_hashes, unsigned int
 				hash_table[idx].iter++;
 				hash_table[idx].store_loc1 = k;
 			}
-			else if (loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[k].LO64 &&
-				loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[k].HI64)
-				loaded_hashes_128[k].LO64 = loaded_hashes_128[k].HI64 = 0;
+			else if (check_equal(hash_table[idx].store_loc1, k))
+				set_zero(k);
 		}
 
 		if (collisions[idx] == 3) {
@@ -198,17 +210,14 @@ static void remove_duplicates_final(unsigned int num_loaded_hashes, unsigned int
 				hash_table[idx].store_loc1 = k;
 			}
 			else if (hash_table[idx].iter == 1) {
-				if (loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[k].LO64 &&
-				    loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[k].HI64)
-					loaded_hashes_128[k].LO64 = loaded_hashes_128[k].HI64 = 0;
+				if (check_equal(hash_table[idx].store_loc1, k))
+					set_zero(k);
 				else
 					hash_table[idx].store_loc2 = k;
 			}
-			else if ((loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[k].LO64 &&
-				  loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[k].HI64) ||
-				  (loaded_hashes_128[hash_table[idx].store_loc2].LO64 == loaded_hashes_128[k].LO64 &&
-				   loaded_hashes_128[hash_table[idx].store_loc2].HI64 == loaded_hashes_128[k].HI64))
-					loaded_hashes_128[k].LO64 = loaded_hashes_128[k].HI64 = 0;
+			else if (check_equal(hash_table[idx].store_loc1, k) ||
+				 check_equal(hash_table[idx].store_loc2, k))
+				set_zero(k);
 		}
 
 		else if (collisions[idx] > 3) {
@@ -218,9 +227,8 @@ static void remove_duplicates_final(unsigned int num_loaded_hashes, unsigned int
 			else {
 				unsigned int j;
 				for (j = 0; j < iter; j++)
-					if (loaded_hashes_128[hash_location_list[hash_table[idx].idx_hash_loc_list][j]].LO64 == loaded_hashes_128[k].LO64 &&
-					    loaded_hashes_128[hash_location_list[hash_table[idx].idx_hash_loc_list][j]].HI64 == loaded_hashes_128[k].HI64) {
-						loaded_hashes_128[k].LO64 = loaded_hashes_128[k].HI64 = 0;
+					if (check_equal(hash_location_list[hash_table[idx].idx_hash_loc_list][j], k)) {
+						set_zero(k);
 						break;
 					}
 				if (j == iter && iter < hash_table[idx].collisions - 1)
@@ -293,9 +301,8 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 				hash_table[idx].iter++;
 				hash_table[idx].store_loc1 = i;
 			}
-			else if (loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[i].LO64 &&
-				loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[i].HI64)
-				loaded_hashes_128[i].LO64 = loaded_hashes_128[i].HI64 = 0;
+			else if (check_equal(hash_table[idx].store_loc1, i))
+				set_zero(i);
 		}
 	}
 }
@@ -313,19 +320,16 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 				hash_table[idx].store_loc1 = i;
 			}
 			else if (hash_table[idx].iter == 1) {
-				if (loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[i].LO64 &&
-				    loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[i].HI64)
-					loaded_hashes_128[i].LO64 = loaded_hashes_128[i].HI64 = 0;
+				if (check_equal(hash_table[idx].store_loc1, i))
+					set_zero(i);
 				else {
 					hash_table[idx].iter++;
 					hash_table[idx].store_loc2 = i;
 				}
 			}
-			else if ((loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[i].LO64 &&
-				  loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[i].HI64) ||
-				  (loaded_hashes_128[hash_table[idx].store_loc2].LO64 == loaded_hashes_128[i].LO64 &&
-				   loaded_hashes_128[hash_table[idx].store_loc2].HI64 == loaded_hashes_128[i].HI64))
-					loaded_hashes_128[i].LO64 = loaded_hashes_128[i].HI64 = 0;
+			else if (check_equal(hash_table[idx].store_loc1, i) ||
+				 check_equal(hash_table[idx].store_loc2, i))
+				set_zero(i);
 		}
 
 		else if (collisions[idx] >= 4) {
@@ -334,9 +338,8 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 				hash_table[idx].store_loc1 = i;
 			}
 			else if (hash_table[idx].iter == 1) {
-				if (loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[i].LO64 &&
-				    loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[i].HI64)
-					loaded_hashes_128[i].LO64 = loaded_hashes_128[i].HI64 = 0;
+				if (check_equal(hash_table[idx].store_loc1, i))
+					set_zero(i);
 				else {
 					hash_table[idx].iter++;
 					hash_table[idx].store_loc2 = i;
@@ -344,24 +347,19 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 
 			}
 			else if (hash_table[idx].iter == 2) {
-				if ((loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[i].LO64 &&
-				     loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[i].HI64) ||
-				    (loaded_hashes_128[hash_table[idx].store_loc2].LO64 == loaded_hashes_128[i].LO64 &&
-				     loaded_hashes_128[hash_table[idx].store_loc2].HI64 == loaded_hashes_128[i].HI64))
-					loaded_hashes_128[i].LO64 = loaded_hashes_128[i].HI64 = 0;
+				if (check_equal(hash_table[idx].store_loc1, i) ||
+				    check_equal(hash_table[idx].store_loc2, i))
+					set_zero(i);
 				else {
 					hash_table[idx].iter++;
 					hash_table[idx].store_loc3 = i;
 				}
 			}
 			else if (hash_table[idx].iter >= 3) {
-				if ((loaded_hashes_128[hash_table[idx].store_loc1].LO64 == loaded_hashes_128[i].LO64 &&
-				     loaded_hashes_128[hash_table[idx].store_loc1].HI64 == loaded_hashes_128[i].HI64) ||
-				    (loaded_hashes_128[hash_table[idx].store_loc2].LO64 == loaded_hashes_128[i].LO64 &&
-				     loaded_hashes_128[hash_table[idx].store_loc2].HI64 == loaded_hashes_128[i].HI64) ||
-				    (loaded_hashes_128[hash_table[idx].store_loc3].LO64 == loaded_hashes_128[i].LO64 &&
-				     loaded_hashes_128[hash_table[idx].store_loc3].HI64 == loaded_hashes_128[i].HI64))
-					loaded_hashes_128[i].LO64 = loaded_hashes_128[i].HI64 = 0;
+				if (check_equal(hash_table[idx].store_loc1, i) ||
+				    check_equal(hash_table[idx].store_loc2, i) ||
+				    check_equal(hash_table[idx].store_loc3, i))
+					set_zero(i);
 				else {
 					if (hash_table[idx].collisions > 4)
 						rehash_list[counter++] = i;
@@ -373,8 +371,6 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 	if (counter)
 		remove_duplicates_final(counter, counter + counter >> 1, rehash_list);
 	free(rehash_list);
-
-
 }
 }
 }
@@ -403,19 +399,19 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 	}
 #endif
 	for (i = num_loaded_hashes - 1; i >= 0; i--)
-		if (loaded_hashes_128[i].LO64 || loaded_hashes_128[i].HI64) {
+		if (check_non_zero(i)) {
 			num_unique_hashes = i;
 			break;
 		}
 
 	for (i = 0; i <= num_unique_hashes; i++)
-		if (loaded_hashes_128[i].LO64 == 0 && loaded_hashes_128[i].HI64 == 0) {
+		if (check_zero(i)) {
 			unsigned int j;
 			loaded_hashes_128[i] = loaded_hashes_128[num_unique_hashes];
-			loaded_hashes_128[num_unique_hashes].LO64 = loaded_hashes_128[num_unique_hashes].HI64 = 0;
+			set_zero(num_unique_hashes);
 			num_unique_hashes--;
 			for (j = num_unique_hashes; j >= 0; j--)
-				if (loaded_hashes_128[j].LO64 || loaded_hashes_128[j].HI64) {
+				if (check_non_zero(j)) {
 					num_unique_hashes = j;
 					break;
 				}

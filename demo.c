@@ -179,102 +179,111 @@ static uint192_t add192(uint192_t a, unsigned int b)
 
 int main(int argc, char *argv[])
 {
-	if ( argc != 2 ) {
-		fprintf(stderr, "Please Enter a File Name");
+	if ( argc != 3 ) {
+		fprintf(stderr, "Please Enter a File Name and hash type");
 	}
 
-	unsigned int offset_table_index, hash_table_index, lookup;
+	unsigned int offset_table_index, hash_table_index, lookup, hash_type;
 	uint192_t temp;
 	uint128_t temp2;
-#if 0
-	// Building 128 bit tables
-	/*
-	 * Load 128bit hashes into the array 'loaded_hashes_192'
-	 */
-	load_hashes_128(argv[1]);
 
-	/*
-	 * Build the tables.
-	 */
-	if (create_perfect_hash_table(128, (void *)loaded_hashes_128,
-			       num_loaded_hashes,
-			       &offset_table,
-			       &offset_table_size,
-			       &hash_table_size)) {
+	hash_type = (unsigned int) strtol(argv[2], NULL, 10);
+
+	if (hash_type == 128) {
+		// Building 128 bit tables
+		/*
+		 * Load 128bit hashes into the array 'loaded_hashes_192'
+		 */
+		load_hashes_128(argv[1]);
 
 		/*
-		 * Demo use of tables.
+		 * Build the tables.
 		 */
-		lookup = 3;
-		if (lookup >= num_loaded_hashes) lookup = num_loaded_hashes - 1;
+		if (create_perfect_hash_table(128, (void *)loaded_hashes_128,
+				num_loaded_hashes,
+			        &offset_table,
+			        &offset_table_size,
+			        &hash_table_size)) {
+
+			/*
+		         * Demo use of tables.
+			 */
+			lookup = 3;
+			if (lookup >= num_loaded_hashes) lookup = num_loaded_hashes - 1;
+
+			/*
+			 * Perform a Lookup into hash table and compute location
+			 * in hash table corresponding to item at location '3' in
+			 * hash array.
+			 */
+			offset_table_index = modulo128_31b(loaded_hashes_128[lookup], offset_table_size);
+			temp2 = add128(loaded_hashes_128[lookup], (unsigned int)offset_table[offset_table_index]);
+			hash_table_index = modulo128_31b(temp2, hash_table_size);
+
+			if (hash_table_128[hash_table_index] == (unsigned int)(loaded_hashes_128[lookup].LO64 & 0xffffffff)  &&
+				hash_table_128[hash_table_index + hash_table_size] == (unsigned int)(loaded_hashes_128[lookup].LO64 >> 32) &&
+				hash_table_128[hash_table_index + 2 * hash_table_size] == (unsigned int)(loaded_hashes_128[lookup].HI64 & 0xffffffff) &&
+				hash_table_128[hash_table_index + 3 * hash_table_size] == (unsigned int)(loaded_hashes_128[lookup].HI64 >> 32))
+					fprintf(stdout, "Lookup successful.\n");
+			else
+				fprintf(stderr, "Lookup failed.\n");
+		}
+		else {
+			free(hash_table_128);
+			free(offset_table);
+		}
+	}
+
+	else if (hash_type == 192) {
+		// Building 192 bit tables
+		/*
+		 * Load 160bit hashes into the array 'loaded_hashes_192'
+		 */
+		 load_hashes_160(argv[1]);
 
 		/*
-		 * Perform a Lookup into hash table and compute location
-		 * in hash table corresponding to item at location '3' in
-		 * hash array.
+		 * Build the tables.
 		 */
-		offset_table_index = modulo128_31b(loaded_hashes_128[lookup], offset_table_size);
-		temp2 = add128(loaded_hashes_128[lookup], (unsigned int)offset_table[offset_table_index]);
-		hash_table_index = modulo128_31b(temp2, hash_table_size);
+		if (create_perfect_hash_table(192, (void *)loaded_hashes_192,
+		       num_loaded_hashes,
+		       &offset_table,
+		       &offset_table_size,
+		       &hash_table_size)) {
 
-		if (hash_table_128[hash_table_index] == (unsigned int)(loaded_hashes_128[lookup].LO64 & 0xffffffff)  &&
-			    hash_table_128[hash_table_index + hash_table_size] == (unsigned int)(loaded_hashes_128[lookup].LO64 >> 32) &&
-			    hash_table_128[hash_table_index + 2 * hash_table_size] == (unsigned int)(loaded_hashes_128[lookup].HI64 & 0xffffffff) &&
-			    hash_table_128[hash_table_index + 3 * hash_table_size] == (unsigned int)(loaded_hashes_128[lookup].HI64 >> 32))
-			fprintf(stdout, "Lookup successful.\n");
-		else
-			fprintf(stderr, "Lookup failed.\n");
+			/*
+			 * Demo use of tables.
+			 */
+			lookup = 3;
+			if (lookup >= num_loaded_hashes) lookup = num_loaded_hashes - 1;
+
+			/*
+			 * Perform a Lookup into hash table and compute location
+			 * in hash table corresponding to item at location '3' in
+			 * hash array.
+			 */
+			offset_table_index = modulo192_31b(loaded_hashes_192[lookup], offset_table_size);
+			temp = add192(loaded_hashes_192[lookup], (unsigned int)offset_table[offset_table_index]);
+			hash_table_index = modulo192_31b(temp, hash_table_size);
+
+			if (hash_table_192[hash_table_index] == (unsigned int)(loaded_hashes_192[lookup].LO & 0xffffffff)  &&
+				hash_table_192[hash_table_index + hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].LO >> 32) &&
+				hash_table_192[hash_table_index + 2 * hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].MI & 0xffffffff) &&
+				hash_table_192[hash_table_index + 3 * hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].MI >> 32) &&
+				hash_table_192[hash_table_index + 4 * hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].HI & 0xffffffff) &&
+				hash_table_192[hash_table_index + 5 * hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].HI >> 32))
+				fprintf(stdout, "Lookup successful.\n");
+			else
+				fprintf(stderr, "Lookup failed.\n");
+		}
+		else {
+			free(hash_table_192);
+			free(offset_table);
+		}
 	}
-	else {
-		free(hash_table_128);
-		free(offset_table);
-	}
-#else
-	// Building 192 bit tables
-	/*
-	 * Load 160bit hashes into the array 'loaded_hashes_192'
-	 */
-	load_hashes_160(argv[1]);
 
-	/*
-	 * Build the tables.
-	 */
-	if (create_perfect_hash_table(192, (void *)loaded_hashes_192,
-			       num_loaded_hashes,
-			       &offset_table,
-			       &offset_table_size,
-			       &hash_table_size)) {
+	else
+		fprintf(stderr, "Unsupported hash type.\n");
 
-		/*
-		 * Demo use of tables.
-		 */
-		lookup = 3;
-		if (lookup >= num_loaded_hashes) lookup = num_loaded_hashes - 1;
-
-		/*
-		 * Perform a Lookup into hash table and compute location
-		 * in hash table corresponding to item at location '3' in
-		 * hash array.
-		 */
-		offset_table_index = modulo192_31b(loaded_hashes_192[lookup], offset_table_size);
-		temp = add192(loaded_hashes_192[lookup], (unsigned int)offset_table[offset_table_index]);
-		hash_table_index = modulo192_31b(temp, hash_table_size);
-
-		if (hash_table_192[hash_table_index] == (unsigned int)(loaded_hashes_192[lookup].LO & 0xffffffff)  &&
-		    hash_table_192[hash_table_index + hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].LO >> 32) &&
-		    hash_table_192[hash_table_index + 2 * hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].MI & 0xffffffff) &&
-		    hash_table_192[hash_table_index + 3 * hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].MI >> 32) &&
-		    hash_table_192[hash_table_index + 4 * hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].HI & 0xffffffff) &&
-		    hash_table_192[hash_table_index + 5 * hash_table_size] == (unsigned int)(loaded_hashes_192[lookup].HI >> 32))
-			fprintf(stdout, "Lookup successful.\n");
-		else
-			fprintf(stderr, "Lookup failed.\n");
-	}
-	else {
-		free(hash_table_192);
-		free(offset_table);
-	}
-#endif
 	free(loaded_hashes_128);
 	free(loaded_hashes_192);
 
