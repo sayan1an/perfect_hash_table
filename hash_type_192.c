@@ -162,7 +162,7 @@ int test_tables_192(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_ta
 
 static void remove_duplicates_final(unsigned int num_loaded_hashes, unsigned int hash_table_size, unsigned int *rehash_list)
 {
-	unsigned int i, num_unique_hashes, **hash_location_list, counter;
+	unsigned int i, **hash_location_list, counter;
 #define COLLISION_DTYPE unsigned short
 	COLLISION_DTYPE *collisions;
 	typedef struct {
@@ -267,12 +267,14 @@ unsigned int remove_duplicates_192(unsigned int num_loaded_hashes, unsigned int 
 
 	} hash_table_data;
 
+	hash_table_data *hash_table = NULL;
+
 	if (hash_table_size & (hash_table_size - 1)) {
 		fprintf(stderr, "Duplicate removal hash table size must power of 2.\n");
 		return 0;
 	}
 
-	hash_table_data *hash_table = (hash_table_data *) malloc(hash_table_size * sizeof(hash_table_data));
+	hash_table = (hash_table_data *) malloc(hash_table_size * sizeof(hash_table_data));
 	collisions = (COLLISION_DTYPE *) calloc(hash_table_size, sizeof(COLLISION_DTYPE));
 #pragma omp parallel private(i)
 {
@@ -376,7 +378,7 @@ unsigned int remove_duplicates_192(unsigned int num_loaded_hashes, unsigned int 
 	}
 
 	if (counter)
-		remove_duplicates_final(counter, counter + counter >> 1, rehash_list);
+		remove_duplicates_final(counter, counter + (counter >> 1), rehash_list);
 	free(rehash_list);
 }
 }

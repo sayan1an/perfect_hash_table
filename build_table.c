@@ -67,16 +67,6 @@ static void alarm_handler(int sig)
 	}
 }
 
-static int qsort_compare(const void *p1, const void *p2)
-{
-	auxilliary_offset_data *a = (auxilliary_offset_data *)p1;
-	auxilliary_offset_data *b = (auxilliary_offset_data *)p2;
-
-	if (a[0].collisions > b[0].collisions) return -1;
-	if (a[0].collisions == b[0].collisions) return 0;
-	return 1;
-}
-
 static unsigned int coprime_check(unsigned int m,unsigned int n)
 {
 	unsigned int rem;
@@ -459,6 +449,7 @@ static unsigned int next_prime(unsigned int num)
 		return 97;
 	else
 		return 1;*/
+	return 1;
 }
 
 int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
@@ -608,3 +599,13 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 
 	return test_tables(num_loaded_hashes, offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz);
 }
+
+/*static int qsort_compare(const void *p1, const void *p2)
+{
+	auxilliary_offset_data *a = (auxilliary_offset_data *)p1;
+	auxilliary_offset_data *b = (auxilliary_offset_data *)p2;
+
+	if (a[0].collisions > b[0].collisions) return -1;
+	if (a[0].collisions == b[0].collisions) return 0;
+	return 1;
+}*/
