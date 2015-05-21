@@ -290,7 +290,7 @@ static unsigned int create_tables()
 
 	gettimeofday(&t, NULL);
 
-	seedMT((unsigned int) t.tv_sec);
+	seedMT(t.tv_sec + t.tv_usec);
 
 	i = 0;
 	backtracking = 0;
