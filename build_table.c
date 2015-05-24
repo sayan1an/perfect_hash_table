@@ -50,22 +50,16 @@ static auxilliary_offset_data *offset_data = NULL;
 
 unsigned long long total_memory_in_bytes = 0;
 
-static unsigned int signal_stop = 0, current_iter = 1, alarm_repeat = 1, alarm_start = 1;
+static unsigned int signal_stop = 0;
 
 static void alarm_handler(int sig)
 {
 	if (sig == SIGALRM) {
-		static int last_iter = 0;
-		if (current_iter <= last_iter) {
-			fprintf(stderr, "\nProgress is too slow!! trying next table size.\n");
-			signal_stop = 1;
-		}
-
-		last_iter = current_iter;
-
-		alarm(alarm_repeat);
+		signal_stop = 1;
+		fprintf(stderr, "\nProgress is too slow!! trying next table size.\n");
 	}
 }
+
 
 static unsigned int coprime_check(unsigned int m,unsigned int n)
 {
@@ -144,7 +138,7 @@ static void init_tables(unsigned int approx_offset_table_sz, unsigned int approx
 	unsigned int i, max_collisions, offset_data_idx;
 	uint64_t shift128;
 
-	fprintf(stdout, "Initialing Tables...");
+	fprintf(stdout, "\nInitialing Tables...");
 
 	total_memory_in_bytes = 0;
 
@@ -223,6 +217,8 @@ static void init_tables(unsigned int approx_offset_table_sz, unsigned int approx
 	//qsort((void *)offset_data, offset_table_size, sizeof(auxilliary_offset_data), qsort_compare);
 	in_place_bucket_sort(max_collisions);
 
+	fprintf(stdout, "Done...\n");
+
 	allocate_ht(num_loaded_hashes);
 
 	fprintf(stdout, "Offset Table Size %Lf %% of Number of Loaded Hashes.\n", ((long double)offset_table_size / (long double)num_loaded_hashes) * 100.00);
@@ -234,8 +230,6 @@ static void init_tables(unsigned int approx_offset_table_sz, unsigned int approx
 	fprintf (stdout, "Unused Slots in Offset Table:%Lf %%\n", 100.00 * (long double)(offset_table_size - i) / (long double)(offset_table_size));
 
 	fprintf(stdout, "Total Memory Use(in GBs):%Lf\n\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
-
-	alarm(alarm_start);
 }
 
 static unsigned int check_n_insert_into_hash_table(unsigned int offset, auxilliary_offset_data * ptr, unsigned int *hash_table_idxs, unsigned int *store_hash_modulo_table_sz)
@@ -295,13 +289,12 @@ static unsigned int create_tables()
 	i = 0;
 	backtracking = 0;
 	trigger = 0;
+
 	while (offset_data[i].collisions > 1) {
 		OFFSET_TABLE_WORD offset;
 		unsigned int num_iter;
 
 		done += offset_data[i].collisions;
-
-		current_iter = i;
 
 		calc_hash_mdoulo_table_size(store_hash_modulo_table_sz, &offset_data[i]);
 
@@ -311,6 +304,7 @@ static unsigned int create_tables()
 			offset = (last_offset + 1) % hash_table_size;
 			backtracking = 0;
 		}
+		alarm(3);
 
 		num_iter = 0;
 		while (!check_n_insert_into_hash_table((unsigned int)offset, &offset_data[i], hash_table_idxs, store_hash_modulo_table_sz) && num_iter < limit) {
@@ -318,18 +312,18 @@ static unsigned int create_tables()
 			if (offset >= hash_table_size) offset = 0;
 			num_iter++;
 		}
-		//fprintf(stdout, "Backtracking...\n");
+
 		offset_table[offset_data[i].offset_table_idx] = offset;
 
 		if ((trigger & 0xffff) == 0) {
 			trigger = 0;
 			fprintf(stdout, "\rProgress:%Lf %%, Number of collisions:%u", done / (long double)num_loaded_hashes * 100.00, offset_data[i].collisions);
 			fflush(stdout);
+			alarm(0);
 		}
 
 		if (signal_stop) {
 			signal_stop = 0;
-			current_iter = 1;
 			alarm(0);
 			return 0;
 		}
@@ -337,29 +331,35 @@ static unsigned int create_tables()
 		trigger++;
 
 		if (num_iter == limit) {
-			unsigned int j, backtrack_steps, iter;
+#ifdef ENABLE_BACKTRACKING
+			if (num_loaded_hashes > 1000000) {
+				unsigned int j, backtrack_steps, iter;
 
-			done -= offset_data[i].collisions;
-			offset_table[offset_data[i].offset_table_idx] = 0;
+				done -= offset_data[i].collisions;
+				offset_table[offset_data[i].offset_table_idx] = 0;
 
-			backtrack_steps = 1;
-			j = 1;
-			while (j <= backtrack_steps && (int)(i - j) >= 0) {
-				last_offset = offset_table[offset_data[i - j].offset_table_idx];
-				iter = 0;
-				while (iter < offset_data[i - j].collisions) {
-					hash_table_idx = calc_ht_idx(offset_data[i - j].hash_location_list[iter], last_offset);
-					assign0_ht(hash_table_idx);
-					iter++;
+				backtrack_steps = 1;
+				j = 1;
+				while (j <= backtrack_steps && (int)(i - j) >= 0) {
+					last_offset = offset_table[offset_data[i - j].offset_table_idx];
+					 iter = 0;
+					while (iter < offset_data[i - j].collisions) {
+						hash_table_idx =
+							calc_ht_idx(offset_data[i - j].hash_location_list[iter],
+								    last_offset);
+							assign0_ht(hash_table_idx);
+							iter++;
+					}
+					offset_table[offset_data[i - j].offset_table_idx] = 0;
+					done -= offset_data[i - j].collisions;
+					j++;
 				}
-				offset_table[offset_data[i - j].offset_table_idx] = 0;
-				done -= offset_data[i - j].collisions;
-				j++;
+				i -= (j - 1);
+				backtracking = 1;
+				continue;
 			}
-			i -= (j - 1);
-
-			backtracking = 1;
-			continue;
+#endif
+			return 0;
 		}
 
 		i++;
@@ -452,7 +452,7 @@ static unsigned int next_prime(unsigned int num)
 	return 1;
 }
 
-int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
+unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 			       unsigned int num_ld_hashes,
 			       OFFSET_TABLE_WORD **offset_table_ptr,
 			       unsigned int *offset_table_sz_ptr,
@@ -527,21 +527,15 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 	}
 	else if (num_ld_hashes <= 110000000) {
 		multiplier_ot = 1.41375173;
-		alarm_start = 3;
-		alarm_repeat = 7;
 		dupe_remove_ht_sz = 134217728;
 	}
 	else if (num_ld_hashes <= 200000000) {
 		multiplier_ot = 1.61375173;
-		alarm_start = 4;
-		alarm_repeat = 10;
 		dupe_remove_ht_sz = 134217728 * 2;
 	}
 	else {
 		fprintf(stderr, "This many number of hashes have never been tested before and might not succeed!!\n");
 		multiplier_ot = 3.01375173;
-		alarm_start = 5;
-		alarm_repeat = 15;
 		dupe_remove_ht_sz = 134217728 * 4;
 	}
 
@@ -597,7 +591,10 @@ int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 	*hash_table_sz_ptr = hash_table_size;
 	*offset_table_sz_ptr = offset_table_size;
 
-	return test_tables(num_loaded_hashes, offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz);
+	if (!test_tables(num_loaded_hashes, offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz))
+		return 0;
+
+	return num_loaded_hashes;
 }
 
 /*static int qsort_compare(const void *p1, const void *p2)

@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
 		/*
 		 * Build the tables.
 		 */
-		if (create_perfect_hash_table(128, (void *)loaded_hashes_128,
+		if (num_loaded_hashes = create_perfect_hash_table(128, (void *)loaded_hashes_128,
 				num_loaded_hashes,
 			        &offset_table,
 			        &offset_table_size,
@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
 		/*
 		 * Build the tables.
 		 */
-		if (create_perfect_hash_table(192, (void *)loaded_hashes_192,
+		if (num_loaded_hashes = create_perfect_hash_table(192, (void *)loaded_hashes_192,
 		       num_loaded_hashes,
 		       &offset_table,
 		       &offset_table_size,
