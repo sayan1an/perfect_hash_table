@@ -460,6 +460,8 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 {
 	long double multiplier_ht, multiplier_ot, inc_ht, inc_ot;
 	unsigned int approx_hash_table_sz, approx_offset_table_sz, i, dupe_remove_ht_sz;
+	struct sigaction new_action, old_action;
+	struct itimerval old_it;
 
 	total_memory_in_bytes = 0;
 
@@ -494,7 +496,24 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		fprintf(stdout, "Using Hash type 192.\n");
 	}
 
-	signal(SIGALRM, alarm_handler);
+	new_action.sa_handler = alarm_handler;
+	sigemptyset(&new_action.sa_mask);
+	new_action.sa_flags = 0;
+
+	if (sigaction(SIGALRM, NULL, &old_action) < 0) {
+		fprintf(stderr, "Error retriving signal info.\n");
+		exit(0);
+	}
+
+	if (sigaction(SIGALRM, &new_action, NULL) < 0) {
+		fprintf(stderr, "Error setting new signal handler.\n");
+		exit(0);
+	}
+
+	if (setitimer(ITIMER_REAL, NULL, &old_it) < 0){
+		fprintf(stderr, "Error retriving timer info.\n");
+		exit(0);
+	}
 
 	inc_ht = 0.005;
 	inc_ot = 0.05;
@@ -590,6 +609,16 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 	*offset_table_ptr = offset_table;
 	*hash_table_sz_ptr = hash_table_size;
 	*offset_table_sz_ptr = offset_table_size;
+
+	if (sigaction(SIGALRM, &old_action, NULL) < 0) {
+		fprintf(stderr, "Error restoring previous signal handler.\n");
+		exit(0);
+	}
+
+	if (setitimer(ITIMER_REAL, &old_it, NULL) < 0){
+		fprintf(stderr, "Error restoring previous timer.\n");
+		exit(0);
+	}
 
 	if (!test_tables(num_loaded_hashes, offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz))
 		return 0;
