@@ -31,4 +31,5 @@ extern unsigned int create_perfect_hash_table(int htype, // Hash type, currenty 
 			       unsigned int num_ld_hashes, // Pass number of hashes in stored in the array.
 			       OFFSET_TABLE_WORD **offset_table_ptr, // Returns a pointer to the Offset Table.
 			       unsigned int *offset_table_sz_ptr, // Returns the size of Offset Table.
-			       unsigned int *hash_table_sz_ptr); // Returns the size of Hash Table.
+			       unsigned int *hash_table_sz_ptr, // Returns the size of Hash Table.
+			       unsigned int verb); // Set verbosity, 0, 1, 2, 3 or greater.

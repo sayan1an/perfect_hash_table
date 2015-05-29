@@ -34,7 +34,7 @@ inline uint128_t add128(uint128_t a, unsigned int b)
 	return result;
 }
 
-void allocate_ht_128(unsigned int num_loaded_hashes)
+void allocate_ht_128(unsigned int num_loaded_hashes, unsigned int verbosity)
 {
 	int i;
 
@@ -50,8 +50,10 @@ void allocate_ht_128(unsigned int num_loaded_hashes)
 
 	total_memory_in_bytes += 4 * hash_table_size * sizeof(unsigned int);
 
-	fprintf(stdout, "Hash Table Size %Lf %% of Number of Loaded Hashes.\n", ((long double)hash_table_size / (long double)num_loaded_hashes) * 100.00);
-	fprintf(stdout, "Hash Table Size(in GBs):%Lf\n", ((long double)4.0 * hash_table_size * sizeof(unsigned int)) / ((long double)1024 * 1024 * 1024));
+	if (verbosity > 2) {
+		fprintf(stdout, "Hash Table Size %Lf %% of Number of Loaded Hashes.\n", ((long double)hash_table_size / (long double)num_loaded_hashes) * 100.00);
+		fprintf(stdout, "Hash Table Size(in GBs):%Lf\n", ((long double)4.0 * hash_table_size * sizeof(unsigned int)) / ((long double)1024 * 1024 * 1024));
+	}
 }
 
 inline unsigned int calc_ht_idx_128(unsigned int hash_location, unsigned int offset)
@@ -88,13 +90,16 @@ unsigned int get_offset_128(unsigned int hash_table_idx, unsigned int hash_locat
 	return (hash_table_size - z + hash_table_idx);
 }
 
-int test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_size, unsigned int shift64_ot_sz, unsigned int shift128_ot_sz)
+int test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_table, unsigned int offset_table_size, unsigned int shift64_ot_sz, unsigned int shift128_ot_sz, unsigned int verbosity)
 {
 	unsigned char *hash_table_collisions;
 	unsigned int i, hash_table_idx, error = 1, count = 0;
 	uint128_t hash;
 
 	hash_table_collisions = (unsigned char *) calloc(hash_table_size, sizeof(unsigned char));
+
+	if (verbosity > 1)
+		fprintf(stdout, "\nTesting Tables...");
 
 #pragma omp parallel private(i, hash_table_idx, hash)
 	{
@@ -134,8 +139,8 @@ int test_tables_128(unsigned int num_loaded_hashes, OFFSET_TABLE_WORD *offset_ta
 
 	free(hash_table_collisions);
 
-	if (error)
-		fprintf(stdout, "Tables TESTED OK\n");
+	if (error && verbosity > 1)
+		fprintf(stdout, "OK\n");
 
 	return 1;
 }
@@ -246,7 +251,7 @@ static void remove_duplicates_final(unsigned int num_loaded_hashes, unsigned int
 	free(collisions);
 }
 
-unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int hash_table_size)
+unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int hash_table_size, unsigned int verbosity)
 {
 	unsigned int i, num_unique_hashes, *rehash_list, counter;
 #define COLLISION_DTYPE unsigned short
@@ -261,6 +266,9 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 	} hash_table_data;
 
 	hash_table_data *hash_table = NULL;
+
+	if (verbosity > 1)
+		fprintf(stdout, "Removing duplicate hashes...");
 
 	if (hash_table_size & (hash_table_size - 1)) {
 		fprintf(stderr, "Duplicate removal hash table size must power of 2.\n");
@@ -377,7 +385,7 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 }
 }
 
-#if 1
+#if 0
 	{	unsigned int col1 = 0, col2 = 0, col3 = 0, col4 = 0, col5a = 0;
 		for (i = 0; i < hash_table_size; i++) {
 			if (collisions[i] == 1)
@@ -421,5 +429,9 @@ unsigned int remove_duplicates_128(unsigned int num_loaded_hashes, unsigned int 
 #undef COLLISION_DTYPE
 	free(collisions);
 	free(hash_table);
+
+	if (verbosity > 1)
+		fprintf(stdout, "Done\n");
+
 	return (num_unique_hashes + 1);
 }

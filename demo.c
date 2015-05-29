@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
 				num_loaded_hashes,
 			        &offset_table,
 			        &offset_table_size,
-			        &hash_table_size)) {
+			        &hash_table_size, 2)) {
 
 			/*
 		         * Demo use of tables.
@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 		       num_loaded_hashes,
 		       &offset_table,
 		       &offset_table_size,
-		       &hash_table_size)) {
+		       &hash_table_size, 2)) {
 
 			/*
 			 * Demo use of tables.

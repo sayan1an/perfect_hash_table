@@ -33,9 +33,9 @@ static void (*assign_ht)(unsigned int, unsigned int);
 static void (*assign0_ht)(unsigned int);
 static unsigned int (*calc_ht_idx)(unsigned int, unsigned int);
 static unsigned int (*get_offset)(unsigned int, unsigned int);
-static void (*allocate_ht)(unsigned int);
-static int (*test_tables)(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int);
-static unsigned int (*remove_duplicates)(unsigned int, unsigned int);
+static void (*allocate_ht)(unsigned int, unsigned int);
+static int (*test_tables)(unsigned int, OFFSET_TABLE_WORD *, unsigned int, unsigned int, unsigned int, unsigned int);
+static unsigned int (*remove_duplicates)(unsigned int, unsigned int, unsigned int);
 static void *loaded_hashes;
 static unsigned int hash_type = 0;
 static unsigned int binary_size_actual = 0;
@@ -51,6 +51,8 @@ static auxilliary_offset_data *offset_data = NULL;
 unsigned long long total_memory_in_bytes = 0;
 
 static unsigned int signal_stop = 0;
+
+static unsigned int verbosity;
 
 static void alarm_handler(int sig)
 {
@@ -138,7 +140,8 @@ static void init_tables(unsigned int approx_offset_table_sz, unsigned int approx
 	unsigned int i, max_collisions, offset_data_idx;
 	uint64_t shift128;
 
-	fprintf(stdout, "\nInitialing Tables...");
+	if (verbosity > 1)
+		fprintf(stdout, "\nInitialing Tables...");
 
 	total_memory_in_bytes = 0;
 
@@ -217,19 +220,22 @@ static void init_tables(unsigned int approx_offset_table_sz, unsigned int approx
 	//qsort((void *)offset_data, offset_table_size, sizeof(auxilliary_offset_data), qsort_compare);
 	in_place_bucket_sort(max_collisions);
 
-	fprintf(stdout, "Done...\n");
+	if (verbosity > 1)
+		fprintf(stdout, "Done\n");
 
-	allocate_ht(num_loaded_hashes);
+	allocate_ht(num_loaded_hashes, verbosity);
 
-	fprintf(stdout, "Offset Table Size %Lf %% of Number of Loaded Hashes.\n", ((long double)offset_table_size / (long double)num_loaded_hashes) * 100.00);
-	fprintf(stdout, "Offset Table Size(in GBs):%Lf\n", ((long double)offset_table_size * sizeof(OFFSET_TABLE_WORD)) / ((long double)1024 * 1024 * 1024));
-	fprintf(stdout, "Offset Table Aux Data Size(in GBs):%Lf\n", ((long double)offset_table_size * sizeof(auxilliary_offset_data)) / ((long double)1024 * 1024 * 1024));
-	fprintf(stdout, "Offset Table Aux List Size(in GBs):%Lf\n", ((long double)num_loaded_hashes * sizeof(unsigned int)) / ((long double)1024 * 1024 * 1024));
+	if (verbosity > 2) {
+		fprintf(stdout, "Offset Table Size %Lf %% of Number of Loaded Hashes.\n", ((long double)offset_table_size / (long double)num_loaded_hashes) * 100.00);
+		fprintf(stdout, "Offset Table Size(in GBs):%Lf\n", ((long double)offset_table_size * sizeof(OFFSET_TABLE_WORD)) / ((long double)1024 * 1024 * 1024));
+		fprintf(stdout, "Offset Table Aux Data Size(in GBs):%Lf\n", ((long double)offset_table_size * sizeof(auxilliary_offset_data)) / ((long double)1024 * 1024 * 1024));
+		fprintf(stdout, "Offset Table Aux List Size(in GBs):%Lf\n", ((long double)num_loaded_hashes * sizeof(unsigned int)) / ((long double)1024 * 1024 * 1024));
 
-	for (i = 0; i < offset_table_size && offset_data[i].collisions; i++);
-	fprintf (stdout, "Unused Slots in Offset Table:%Lf %%\n", 100.00 * (long double)(offset_table_size - i) / (long double)(offset_table_size));
+		for (i = 0; i < offset_table_size && offset_data[i].collisions; i++);
+			fprintf (stdout, "Unused Slots in Offset Table:%Lf %%\n", 100.00 * (long double)(offset_table_size - i) / (long double)(offset_table_size));
 
-	fprintf(stdout, "Total Memory Use(in GBs):%Lf\n\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
+		fprintf(stdout, "Total Memory Use(in GBs):%Lf\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
+	}
 }
 
 static unsigned int check_n_insert_into_hash_table(unsigned int offset, auxilliary_offset_data * ptr, unsigned int *hash_table_idxs, unsigned int *store_hash_modulo_table_sz)
@@ -317,8 +323,10 @@ static unsigned int create_tables()
 
 		if ((trigger & 0xffff) == 0) {
 			trigger = 0;
-			fprintf(stdout, "\rProgress:%Lf %%, Number of collisions:%u", done / (long double)num_loaded_hashes * 100.00, offset_data[i].collisions);
-			fflush(stdout);
+			if (verbosity > 0) {
+				fprintf(stdout, "\rProgress:%Lf %%, Number of collisions:%u", done / (long double)num_loaded_hashes * 100.00, offset_data[i].collisions);
+				fflush(stdout);
+			}
 			alarm(0);
 		}
 
@@ -381,14 +389,15 @@ static unsigned int create_tables()
 		offset_table[offset_data[i].offset_table_idx] = get_offset(hash_table_idx, offset_data[i].hash_location_list[0]);
 		if ((trigger & 0xffff) == 0) {
 			trigger = 0;
-			fprintf(stdout, "\rProgress:%Lf %%, Number of collisions:%u", done / (long double)num_loaded_hashes * 100.00, offset_data[i].collisions);
-			fflush(stdout);
+			if (verbosity > 0) {
+				fprintf(stdout, "\rProgress:%Lf %%, Number of collisions:%u", done / (long double)num_loaded_hashes * 100.00, offset_data[i].collisions);
+				fflush(stdout);
+			}
 		}
 		trigger++;
 		i++;
 	}
 
-	fprintf(stdout, "\n");
 	free(hash_table_idxs);
 	free(store_hash_modulo_table_sz);
 
@@ -456,7 +465,8 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 			       unsigned int num_ld_hashes,
 			       OFFSET_TABLE_WORD **offset_table_ptr,
 			       unsigned int *offset_table_sz_ptr,
-			       unsigned int *hash_table_sz_ptr)
+			       unsigned int *hash_table_sz_ptr,
+			       unsigned int verb)
 {
 	long double multiplier_ht, multiplier_ot, inc_ht, inc_ot;
 	unsigned int approx_hash_table_sz, approx_offset_table_sz, i, dupe_remove_ht_sz;
@@ -467,6 +477,7 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 
 	hash_type = htype;
 	loaded_hashes = loaded_hashes_ptr;
+	verbosity = verb;
 
 	if (hash_type == 128) {
 		zero_check_ht = zero_check_ht_128;
@@ -479,7 +490,8 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		remove_duplicates = remove_duplicates_128;
 		loaded_hashes_128 = (uint128_t *)loaded_hashes;
 		binary_size_actual = 16;
-		fprintf(stdout, "Using Hash type 128.\n");
+		if (verbosity > 1)
+			fprintf(stdout, "Using Hash type 128.\n");
 	}
 
 	else if (hash_type == 192) {
@@ -493,7 +505,8 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		remove_duplicates = remove_duplicates_192;
 		loaded_hashes_192 = (uint192_t *)loaded_hashes;
 		binary_size_actual = 24;
-		fprintf(stdout, "Using Hash type 192.\n");
+		if (verbosity > 1)
+			fprintf(stdout, "Using Hash type 192.\n");
 	}
 
 	new_action.sa_handler = alarm_handler;
@@ -558,8 +571,7 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		dupe_remove_ht_sz = 134217728 * 4;
 	}
 
-	num_loaded_hashes = remove_duplicates(num_ld_hashes, dupe_remove_ht_sz);
-	//num_loaded_hashes = num_ld_hashes;
+	num_loaded_hashes = remove_duplicates(num_ld_hashes, dupe_remove_ht_sz, verbosity);
 	if (!num_loaded_hashes) {
 		fprintf(stderr, "Failed to remove duplicates\n");
 		exit(0);
@@ -576,9 +588,13 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 
 		init_tables(approx_offset_table_sz, approx_hash_table_sz);
 
-		if (create_tables())
+		if (create_tables()) {
+			if (verbosity > 0)
+				fprintf(stdout, "\n");
 			break;
-
+		}
+		if (verbosity > 0)
+			fprintf(stdout, "\n");
 		release_all_lists();
 		free(offset_data);
 		free(offset_table);
@@ -620,7 +636,7 @@ unsigned int create_perfect_hash_table(int htype, void *loaded_hashes_ptr,
 		exit(0);
 	}
 
-	if (!test_tables(num_loaded_hashes, offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz))
+	if (!test_tables(num_loaded_hashes, offset_table, offset_table_size, shift64_ot_sz, shift128_ot_sz, verbosity))
 		return 0;
 
 	return num_loaded_hashes;
