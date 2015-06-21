@@ -239,7 +239,8 @@ MAYBE_ATOMIC_CAPTURE
 		fprintf(stdout, "Offset Table Aux Data Size(in GBs):%Lf\n", ((long double)offset_table_size * sizeof(auxilliary_offset_data)) / ((long double)1024 * 1024 * 1024));
 		fprintf(stdout, "Offset Table Aux List Size(in GBs):%Lf\n", ((long double)num_loaded_hashes * sizeof(unsigned int)) / ((long double)1024 * 1024 * 1024));
 
-		for (i = 0; i < offset_table_size && offset_data[i].collisions; i++);
+		for (i = 0; i < offset_table_size && offset_data[i].collisions; i++)
+			;
 			fprintf (stdout, "Unused Slots in Offset Table:%Lf %%\n", 100.00 * (long double)(offset_table_size - i) / (long double)(offset_table_size));
 
 		fprintf(stdout, "Total Memory Use(in GBs):%Lf\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
@@ -283,15 +284,18 @@ static void calc_hash_mdoulo_table_size(unsigned int *store, auxilliary_offset_d
 
 static unsigned int create_tables()
 {
- 	unsigned int i, backtracking;
+ 	unsigned int i;
 
 	unsigned int bitmap = ((1ULL << (sizeof(OFFSET_TABLE_WORD) * 8)) - 1) & 0xFFFFFFFF;
 	unsigned int limit = bitmap % hash_table_size + 1;
 
 	unsigned int hash_table_idx, *store_hash_modulo_table_sz = (unsigned int *) malloc(offset_data[0].collisions * sizeof(unsigned int));
-	OFFSET_TABLE_WORD last_offset;
 	unsigned int *hash_table_idxs = (unsigned int*) malloc(offset_data[0].collisions * sizeof(unsigned int));
-
+	
+#ifdef ENABLE_BACKTRACKING
+	OFFSET_TABLE_WORD last_offset;
+	unsigned int backtracking = 0;
+#endif
 	unsigned int trigger;
 	long double done = 0;
 	struct timeval t;
@@ -301,7 +305,6 @@ static unsigned int create_tables()
 	seedMT(t.tv_sec + t.tv_usec);
 
 	i = 0;
-	backtracking = 0;
 	trigger = 0;
 
 	while (offset_data[i].collisions > 1) {
@@ -314,10 +317,12 @@ static unsigned int create_tables()
 
 		offset = (OFFSET_TABLE_WORD)(randomMT() & bitmap) % hash_table_size;
 
+#ifdef ENABLE_BACKTRACKING
 		if (backtracking) {
 			offset = (last_offset + 1) % hash_table_size;
 			backtracking = 0;
 		}
+#endif
 		alarm(3);
 
 		num_iter = 0;
