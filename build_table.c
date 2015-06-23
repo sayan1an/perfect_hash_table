@@ -17,7 +17,7 @@
 
 #define DEBUG
 
-#if _OPENMP > 201105
+#if _OPENMP > 201107
 #define MAYBE_PARALLEL_FOR _Pragma("omp for")
 #define MAYBE_ATOMIC_WRITE _Pragma("omp atomic write")
 #define MAYBE_ATOMIC_CAPTURE _Pragma("omp atomic capture")
@@ -289,9 +289,10 @@ static unsigned int create_tables()
 	unsigned int bitmap = ((1ULL << (sizeof(OFFSET_TABLE_WORD) * 8)) - 1) & 0xFFFFFFFF;
 	unsigned int limit = bitmap % hash_table_size + 1;
 
-	unsigned int hash_table_idx, *store_hash_modulo_table_sz = (unsigned int *) malloc(offset_data[0].collisions * sizeof(unsigned int));
+	unsigned int hash_table_idx;
+	unsigned int *store_hash_modulo_table_sz = (unsigned int *) malloc(offset_data[0].collisions * sizeof(unsigned int));
 	unsigned int *hash_table_idxs = (unsigned int*) malloc(offset_data[0].collisions * sizeof(unsigned int));
-	
+
 #ifdef ENABLE_BACKTRACKING
 	OFFSET_TABLE_WORD last_offset;
 	unsigned int backtracking = 0;
@@ -346,6 +347,8 @@ static unsigned int create_tables()
 		if (signal_stop) {
 			signal_stop = 0;
 			alarm(0);
+			free(hash_table_idxs);
+			free(store_hash_modulo_table_sz);
 			return 0;
 		}
 
@@ -380,6 +383,8 @@ static unsigned int create_tables()
 				continue;
 			}
 #endif
+			free(hash_table_idxs);
+			free(store_hash_modulo_table_sz);
 			return 0;
 		}
 
