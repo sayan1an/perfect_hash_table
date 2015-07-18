@@ -18,13 +18,15 @@ typedef struct {
 	uint64_t HI;
 } uint192_t;
 
+extern unsigned int *hash_table_64; // Hash Table for 64 bit hashes.
 extern unsigned int *hash_table_128; // Hash Table for 128 bit hashes.
 extern unsigned int *hash_table_192; // Hash Table for 192 bit hashes.
 
 /*
  * Function to build a Perfect Hash Table from an array of hashes.
- * Warning: loaded_hashes_ptr must be of type 'uint128_t *' for hashes <= 128bit and 'uint192_t *'
- * for hashes <=192bit
+ * Warning: loaded_hashes_ptr must be of type 'uint64_t *' for hashes <= 64bit
+ * 'uint128_t *' for hashes <= 128bit and
+ * 'uint192_t *' for hashes <=192bit.
  */
 extern unsigned int create_perfect_hash_table(int htype, // Hash type, currenty supported upto 192 bit hashes.
 			       void *loaded_hashes_ptr, // Pass a pointer to an array containing hashes of type uint128_t or uint192_t.

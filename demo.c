@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include "interface.h"
 
+static uint64_t *loaded_hashes_64;
 static uint128_t *loaded_hashes_128;
 static uint192_t *loaded_hashes_192;
 static unsigned int num_loaded_hashes = 0;
@@ -12,11 +13,62 @@ static unsigned int hash_table_size = 0;
 
 static unsigned int total_memory_in_bytes = 0;
 
+static void load_hashes_64(char *filename)
+{
+	FILE *fp;
+	char string_a[9], string_b[9];
+	unsigned int iter;
+
+	fprintf(stdout, "Loading Hashes...");
+
+	fp = fopen(filename, "r");
+	if (fp == NULL) {
+		fprintf(stderr, "Error reading file.\n");
+		exit(0);
+	}
+	while (fscanf(fp, "%08s%08s\n", string_a, string_b) == 2) num_loaded_hashes++;
+	fclose(fp);
+
+	fp = fopen(filename, "r");
+	if (fp == NULL) {
+		fprintf(stderr, "Error reading file.\n");
+		exit(0);
+	}
+
+	loaded_hashes_64 = (uint64_t *) calloc(num_loaded_hashes, sizeof(uint64_t));
+	total_memory_in_bytes += (unsigned long long)num_loaded_hashes * sizeof(uint64_t);
+
+	iter = 0;
+
+	while(fscanf(fp, "%08s%08s\n", string_a, string_b) == 2) {
+
+		uint64_t input_hash_64;
+		unsigned int a, b, c, d;
+
+		string_a[8] = string_b[8] = 0;
+
+		a = (unsigned int) strtol(string_a, NULL, 16);
+		b = (unsigned int) strtol(string_b, NULL, 16);
+
+		input_hash_64 = ((uint64_t)b << 32) | (uint64_t)a;
+
+		loaded_hashes_64[iter++] = input_hash_64;
+
+	}
+
+	fprintf(stdout, "Done.\n");
+
+	fprintf(stdout, "Number of loaded hashes(in millions):%Lf\n", (long double)num_loaded_hashes/ ((long double)1000.00 * 1000.00));
+	fprintf(stdout, "Size of Loaded Hashes(in GBs):%Lf\n\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
+
+	fclose(fp);
+}
+
 static void load_hashes_128(char *filename)
 {
 	FILE *fp;
 	char string_a[9], string_b[9], string_c[9], string_d[9];
-	unsigned int iter, shift64;
+	unsigned int iter;
 
 	fprintf(stdout, "Loading Hashes...");
 
@@ -38,7 +90,6 @@ static void load_hashes_128(char *filename)
 	total_memory_in_bytes += (unsigned long long)num_loaded_hashes * sizeof(uint128_t);
 
 	iter = 0;
-	shift64 = (((1ULL << 63) % num_loaded_hashes) * 2) % num_loaded_hashes;
 
 	while(fscanf(fp, "%08s%08s%08s%08s\n", string_a, string_b, string_c, string_d) == 4) {
 
@@ -71,7 +122,7 @@ static void load_hashes_160(char *filename)
 {
 	FILE *fp;
 	char string_a[9], string_b[9], string_c[9], string_d[9], string_e[9];
-	unsigned int iter, shift64;
+	unsigned int iter;
 
 	fprintf(stdout, "Loading Hashes...");
 
@@ -93,7 +144,6 @@ static void load_hashes_160(char *filename)
 	total_memory_in_bytes += (unsigned long long)num_loaded_hashes * sizeof(uint192_t);
 
 	iter = 0;
-	shift64 = (((1ULL << 63) % num_loaded_hashes) * 2) % num_loaded_hashes;
 
 	while(fscanf(fp, "%08s%08s%08s%08s%08s\n", string_a, string_b, string_c, string_d, string_e) == 5) {
 
@@ -121,6 +171,16 @@ static void load_hashes_160(char *filename)
 	fprintf(stdout, "Size of Loaded Hashes(in GBs):%Lf\n\n", ((long double)total_memory_in_bytes) / ((long double) 1024 * 1024 * 1024));
 
 	fclose(fp);
+}
+
+static unsigned int modulo64_31b(uint64_t a, unsigned int N)
+{
+	return (unsigned int)(a % N);
+}
+
+static uint64_t add64(uint64_t a, unsigned int b)
+{
+	return (a + b);
 }
 
 static unsigned int modulo128_31b(uint128_t a, unsigned int N)
@@ -184,12 +244,54 @@ int main(int argc, char *argv[])
 	}
 
 	unsigned int offset_table_index, hash_table_index, lookup, hash_type;
-	uint192_t temp;
-	uint128_t temp2;
 
 	hash_type = (unsigned int) strtol(argv[2], NULL, 10);
 
-	if (hash_type == 128) {
+	if (hash_type == 64) {
+		uint64_t temp;
+		// Building 64 bit tables
+		/*
+		 * Load 64bit hashes into the array 'loaded_hashes_192'
+		 */
+		load_hashes_64(argv[1]);
+
+		/*
+		 * Build the tables.
+		 */
+		if (num_loaded_hashes = create_perfect_hash_table(64, (void *)loaded_hashes_64,
+				num_loaded_hashes,
+			        &offset_table,
+			        &offset_table_size,
+			        &hash_table_size, 2)) {
+
+			/*
+		         * Demo use of tables.
+			 */
+			lookup = 3;
+			if (lookup >= num_loaded_hashes) lookup = num_loaded_hashes - 1;
+
+			/*
+			 * Perform a Lookup into hash table and compute location
+			 * in hash table corresponding to item at location '3' in
+			 * hash array.
+			 */
+			offset_table_index = modulo64_31b(loaded_hashes_64[lookup], offset_table_size);
+			temp = add64(loaded_hashes_64[lookup], (unsigned int)offset_table[offset_table_index]);
+			hash_table_index = modulo64_31b(temp, hash_table_size);
+
+			if (hash_table_64[hash_table_index] == (unsigned int)(loaded_hashes_64[lookup] & 0xffffffff)  &&
+				hash_table_64[hash_table_index + hash_table_size] == (unsigned int)(loaded_hashes_64[lookup] >> 32))
+					fprintf(stdout, "Lookup successful.\n");
+			else
+				fprintf(stderr, "Lookup failed.\n");
+		}
+		else {
+			free(hash_table_64);
+			free(offset_table);
+		}
+	}
+	else if (hash_type == 128) {
+		uint128_t temp;
 		// Building 128 bit tables
 		/*
 		 * Load 128bit hashes into the array 'loaded_hashes_192'
@@ -217,8 +319,8 @@ int main(int argc, char *argv[])
 			 * hash array.
 			 */
 			offset_table_index = modulo128_31b(loaded_hashes_128[lookup], offset_table_size);
-			temp2 = add128(loaded_hashes_128[lookup], (unsigned int)offset_table[offset_table_index]);
-			hash_table_index = modulo128_31b(temp2, hash_table_size);
+			temp = add128(loaded_hashes_128[lookup], (unsigned int)offset_table[offset_table_index]);
+			hash_table_index = modulo128_31b(temp, hash_table_size);
 
 			if (hash_table_128[hash_table_index] == (unsigned int)(loaded_hashes_128[lookup].LO64 & 0xffffffff)  &&
 				hash_table_128[hash_table_index + hash_table_size] == (unsigned int)(loaded_hashes_128[lookup].LO64 >> 32) &&
@@ -233,8 +335,8 @@ int main(int argc, char *argv[])
 			free(offset_table);
 		}
 	}
-
 	else if (hash_type == 192) {
+		uint192_t temp;
 		// Building 192 bit tables
 		/*
 		 * Load 160bit hashes into the array 'loaded_hashes_192'
@@ -284,6 +386,7 @@ int main(int argc, char *argv[])
 	else
 		fprintf(stderr, "Unsupported hash type.\n");
 
+	free(loaded_hashes_64);
 	free(loaded_hashes_128);
 	free(loaded_hashes_192);
 
