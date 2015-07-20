@@ -24,14 +24,14 @@ include file 'interface.h' into your programs.
 See 'demo.c' for more details.
 
 ###4. Building and using demo.c:
-gcc -g -O -c build_table.c twister.c hash_type_128.c hash_type_192.c -fopenmp   
-gcc twister.o hash_type_192.o hash_type_128.o build_table.o  demo.c -o demo.out  -fopenmp   
+gcc -g -O -c bt.c bt_twister.c bt_hash_type_64.c bt_hash_type_128.c bt_hash_type_192.c -fopenmp   
+gcc bt_twister.o bt_hash_type_192.o bt_hash_type_128.o bt_hash_type_64.o bt.o  demo.c -o demo.out  -fopenmp   
 ./demo.out hash_list_file 128 // for loading 128 bit hashes or lower.   
 ./demo.out hash_list_file 192 // for loading 160bit or 192bit hashes.   
 
 Building with Address sanitizer* for detecting memory issues:   
-gcc -g -O -c build_table.c twister.c hash_type_64.c hash_type_128.c hash_type_192.c -fsanitize=address -fno-omit-frame-pointer -fopenmp   
-gcc twister.o hash_type_192.o hash_type_128.o hash_type_64.o build_table.o  demo.c -o demo.out -fsanitize=address -fno-omit-frame-pointer -fopenmp   
+gcc -g -O -c bt.c bt_twister.c bt_hash_type_64.c bt_hash_type_128.c bt_hash_type_192.c -fsanitize=address -fno-omit-frame-pointer -fopenmp   
+gcc bt_twister.o bt_hash_type_192.o bt_hash_type_128.o bt_hash_type_64.o bt.o  demo.c -o demo.out -fsanitize=address -fno-omit-frame-pointer -fopenmp   
 ./demo.out hash_list_file 128 // for loading 128 bit hashes or lower.   
 ./demo.out hash_list_file 192 // for loading 160bit or 192bit hashes.   
 
