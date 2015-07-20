@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "interface.h"
+#include "bt_interface.h"
 
 static uint64_t *loaded_hashes_64;
 static uint128_t *loaded_hashes_128;

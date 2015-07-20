@@ -12,8 +12,9 @@
 #include <sys/time.h>
 #include <signal.h>
 #include <unistd.h>
-#include "mt.h"
-#include "hash_types.h"
+
+#include "bt_twister.h"
+#include "bt_hash_types.h"
 
 #define DEBUG
 

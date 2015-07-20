@@ -47,7 +47,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "mt.h"
+#include "bt_twister.h"
 
 #define N              (624)                 // length of state vector
 #define M              (397)                 // a period parameter
