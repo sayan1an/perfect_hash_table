@@ -277,10 +277,10 @@ unsigned int remove_duplicates_192(unsigned int num_loaded_hashes, unsigned int 
 		COLLISION_DTYPE iter;
 	} hash_table_data;
 
+	hash_table_data *hash_table = NULL;
+
 	if (verbosity > 1)
 		fprintf(stdout, "Removing duplicate hashes...");
-
-	hash_table_data *hash_table = NULL;
 
 	if (hash_table_size & (hash_table_size - 1)) {
 		fprintf(stderr, "Duplicate removal hash table size must power of 2.\n");
