@@ -93,7 +93,7 @@ static void release_all_lists()
 int bt_malloc(void **ptr, size_t size)
 {
 	*ptr = malloc(size);
-	if (*ptr)
+	if (*ptr || !size)
 		return 0;
 	return 1;
 }
@@ -101,14 +101,18 @@ int bt_malloc(void **ptr, size_t size)
 int bt_calloc(void **ptr, size_t num, size_t size)
 {
 	*ptr = calloc(num, size);
-	if (*ptr)
+	if (*ptr || !num)
 		return 0;
 	return 1;
 }
 
 int bt_memalign_alloc(void **ptr, size_t alignment, size_t size)
 {
-	return posix_memalign(ptr, alignment, size);
+	int ret_code;
+	ret_code = posix_memalign(ptr, alignment, size);
+	if (*ptr || !size)
+		return 0;
+	return ret_code;
 }
 
 void bt_free(void **ptr)
