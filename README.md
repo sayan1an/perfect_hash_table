@@ -1,12 +1,12 @@
-##**Brief description:**
+## **Brief description:**
 This projects builds a perfect hash table that requires exactly two memory access to perform a lookup.
 
-##**Limitations:**
+## **Limitations:**
 1. Designed to load only upto 0x7fffffff number of distinct hashes. Duplicates are removed during build process.
 2. Currently supported hash types are 32bit to 192bit. Althogh hash types can be easily etendend.
 
-##**How to use:**
-###1. Perform a lookup:   
+## **How to use:**
+### 1. Perform a lookup:   
 offset_table_idx = search_hash % offset_table_size;   
 offset = offset_table[offset_table_idx]; // first memory access.   
 hash_table_idx = hash + offset;   
@@ -14,16 +14,16 @@ found_hash = hash_table[hash_table_idx]; // second memory access.
 
 Look demo.c for more details.
 
-###2. Loading the hases:
+### 2. Loading the hases:
 For 64bit or lower hashes should be loaded into an array of uint64_t.  
 For 128bit or lower hashes should be loaded into an array of struct uint128_t(defined in interface.h).  
 For 160bit/192bit hashes should be loaded into an array of struct uint192_t(defined in interface.h).
 
-###3. Linking and using the repo:
+### 3. Linking and using the repo:
 include file 'interface.h' into your programs.   
 See 'demo.c' for more details.
 
-###4. Building and using demo.c:
+### 4. Building and using demo.c:
 gcc -g -O -c bt.c bt_twister.c bt_hash_type_64.c bt_hash_type_128.c bt_hash_type_192.c -fopenmp   
 gcc bt_twister.o bt_hash_type_192.o bt_hash_type_128.o bt_hash_type_64.o bt.o  demo.c -o demo.out  -fopenmp   
 ./demo.out hash_list_file 128 // for loading 128 bit hashes or lower.   
