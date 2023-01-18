@@ -1,5 +1,5 @@
 ## **Brief description:**
-This projects builds a perfect hash table that requires exactly two memory access to perform a lookup.
+This projects builds a perfect hash table that requires exactly two memory access to perform a lookup. Based on Siggraph 06 paper - "Perfect Spatial Hashing" by Lefebvre et. al. 
 
 ## **Limitations:**
 1. Designed to load only upto 0x7fffffff number of distinct hashes. Duplicates are removed during build process.
